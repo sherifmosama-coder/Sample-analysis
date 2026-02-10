@@ -1,0 +1,1455 @@
+<!-- Portal A Template -->
+<template id="portalATemplate">
+  <div class="portal-container portal-a-dark">
+    <div class="portal-header">
+      <div class="portal-title">
+        <i class="fas fa-cogs"></i>
+        <span>ارسال تانك</span>
+      </div>
+      <button class="btn-back" onclick="goHome()">
+        <i class="fas fa-arrow-right"></i>
+        <span>العودة</span>
+      </button>
+    </div>
+
+    <div class="portal-body">
+      <div id="successMsg" class="success-msg" style="display: none;">
+        <i class="fas fa-check-circle"></i>
+        <span>تم حفظ البيانات بنجاح</span>
+      </div>
+
+      <form id="formA" onsubmit="submitFormA(event)">
+        <div class="form-group">
+          <label class="form-label">
+            <i class="fas fa-box"></i> نوع الخامة *
+          </label>
+          <div id="materialBtns" class="toggle-group"></div>
+        </div>
+
+        <div id="preparationGroup" class="form-group" style="display: none;">
+          <label class="form-label">
+            <i class="fas fa-cog"></i> طريقة التحضير *
+          </label>
+          <div id="preparationBtns" class="toggle-group">
+            <button type="button" class="toggle-btn" data-value="100">100</button>
+            <button type="button" class="toggle-btn" data-value="50">50</button>
+            <button type="button" class="toggle-btn" data-value="1">1</button>
+            <button type="button" class="toggle-btn" data-value="2">2</button>
+            <button type="button" class="toggle-btn" data-value="3">3</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <i class="fas fa-hashtag"></i> العدد *
+          </label>
+          <input type="number" id="quantity" class="form-control" placeholder="1" min="1" step="1" inputmode="numeric" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <i class="fas fa-gauge"></i> قراءات الجهاز *
+          </label>
+          <div class="readings-group">
+            <div class="reading-input-wrapper">
+              <label class="reading-label">قراءة 1</label>
+              <input type="text" id="deviceReading1" class="form-control reading-input" placeholder="0.00" inputmode="decimal" onblur="calculateAverageA()">
+            </div>
+            <div class="reading-input-wrapper">
+              <label class="reading-label">قراءة 2</label>
+              <input type="text" id="deviceReading2" class="form-control reading-input" placeholder="0.00" inputmode="decimal" onblur="calculateAverageA()">
+            </div>
+            <div class="reading-input-wrapper">
+              <label class="reading-label">قراءة 3</label>
+              <input type="text" id="deviceReading3" class="form-control reading-input" placeholder="0.00" inputmode="decimal" onblur="calculateAverageA()">
+            </div>
+          </div>
+          <small class="form-hint">أدخل قراءة واحدة على الأقل - القراءات أقل من 10 سيتم تحويلها تلقائياً</small>
+          <div id="averageDisplayA" class="average-display" style="display: none;">
+            <i class="fas fa-calculator"></i>
+            <span>المتوسط: <strong id="averageValueA">0.00</strong> pH</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <i class="fas fa-barcode"></i> رقم العينة *
+          </label>
+          <input type="number" id="serialNum" class="form-control" placeholder="رقم تسلسلي" min="1" step="1" inputmode="numeric" required>
+          <div id="serialError" class="error-msg" style="display: none;">
+            <i class="fas fa-exclamation-circle"></i>
+            <span></span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <i class="fas fa-calculator"></i> v/v%
+          </label>
+          <input type="text" id="vvPercent" class="form-control readonly-field" readonly placeholder="سيتم الحساب تلقائياً">
+        </div>
+
+        <div class="button-group">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i>
+            <span>حفظ</span>
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="goHome()">
+            <i class="fas fa-times"></i>
+            <span>إلغاء</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</template>
+
+<!-- Portal B Template -->
+<template id="portalBTemplate">
+  <div class="portal-container">
+    <div class="portal-header">
+      <div class="portal-title">
+        <i class="fas fa-flask"></i>
+        <span>تحليل عينة</span>
+      </div>
+      <button class="btn-back" onclick="goHome()">
+        <i class="fas fa-arrow-right"></i>
+        <span>العودة</span>
+      </button>
+    </div>
+    <div class="portal-body">
+      <div id="successMsgB" class="success-msg" style="display: none;">
+        <i class="fas fa-check-circle"></i>
+        <span>تم حفظ البيانات بنجاح</span>
+      </div>
+
+      <form id="formB" onsubmit="submitFormB(event)">
+        <div class="form-group">
+          <label class="form-label">
+            <i class="fas fa-vial"></i> نوع العينة *
+          </label>
+          <div class="toggle-group">
+            <button type="button" class="toggle-btn" data-sample-type="product" onclick="selectSampleType('product')">عينة من منتج</button>
+            <button type="button" class="toggle-btn" data-sample-type="tank" onclick="selectSampleType('tank')">تانك</button>
+          </div>
+        </div>
+
+        <div id="tankPath" style="display: none;">
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fas fa-barcode"></i> رقم العينة *
+            </label>
+            <select id="tankSerial" class="form-control" onchange="loadTankInfo()">
+              <option value="">-- اختر رقم العينة --</option>
+            </select>
+          </div>
+
+          <div id="tankInfoCard" class="info-card" style="display: none;">
+            <div class="info-card-header">
+              <i class="fas fa-info-circle"></i>
+              <span>معلومات التانك</span>
+            </div>
+            <div class="info-card-body">
+              <div class="info-row">
+                <span class="info-label">التاريخ:</span>
+                <span id="tankDate" class="info-value"></span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">قراءة الجهاز 1:</span>
+                <span id="tankReading1" class="info-value"></span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">النسبة المئوية:</span>
+                <span id="tankPercent" class="info-value"></span>
+              </div>
+            </div>
+          </div>
+
+          <div id="previousAnalysisTip" class="previous-analysis-tip" style="display: none;">
+            <div id="previousAnalysisTipContent"></div>
+          </div>
+        </div>
+
+        <div id="productPath" style="display: none;">
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fas fa-bottle-droplet"></i> اسم المنتج *
+            </label>
+            <select id="productName" class="form-control">
+              <option value="">-- اختر المنتج --</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="commonFields" style="display: none;">
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fas fa-microscope"></i> طريقة التحليل *
+            </label>
+            <div class="toggle-group">
+              <button type="button" class="toggle-btn" data-analysis-method="device" onclick="selectAnalysisMethod('device')">الجهاز</button>
+              <button type="button" class="toggle-btn" data-analysis-method="lab" onclick="selectAnalysisMethod('lab')">معملي</button>
+            </div>
+          </div>
+
+          <div class="form-group" id="deviceReadingsGroup" style="display: none;">
+            <label class="form-label">
+              <i class="fas fa-gauge"></i> قراءات الجهاز *
+            </label>
+            <div class="readings-group">
+              <div class="reading-input-wrapper">
+                <label class="reading-label">قراءة 1</label>
+                <input type="text" id="deviceReadingB1" class="form-control reading-input" placeholder="0.00" inputmode="decimal" onblur="calculateAverageB()">
+              </div>
+              <div class="reading-input-wrapper">
+                <label class="reading-label">قراءة 2</label>
+                <input type="text" id="deviceReadingB2" class="form-control reading-input" placeholder="0.00" inputmode="decimal" onblur="calculateAverageB()">
+              </div>
+              <div class="reading-input-wrapper">
+                <label class="reading-label">قراءة 3</label>
+                <input type="text" id="deviceReadingB3" class="form-control reading-input" placeholder="0.00" inputmode="decimal" onblur="calculateAverageB()">
+              </div>
+            </div>
+            <small class="form-hint">أدخل قراءة واحدة على الأقل - القراءات أقل من 10 سيتم تحويلها تلقائياً</small>
+            <div id="averageDisplayB" class="average-display" style="display: none;">
+              <i class="fas fa-calculator"></i>
+              <span>المتوسط: <strong id="averageValueB">0.00</strong> pH</span>
+            </div>
+            <div id="calculatedVV" class="calculated-display" style="display: none;">
+              <i class="fas fa-calculator"></i>
+              <span>v/v%: <strong id="vvValue">0.00</strong></span>
+            </div>
+          </div>
+
+          <div class="form-group" id="labResultGroup" style="display: none;">
+            <label class="form-label">
+              <i class="fas fa-chart-line"></i> نتيجة التحليل المعملي *
+            </label>
+            <div class="input-with-suffix">
+              <input type="text" id="labResult" class="form-control" placeholder="0.00" inputmode="decimal">
+              <span class="input-suffix">%</span>
+            </div>
+          </div>
+
+          <div id="productOnlyFields" style="display: none;">
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-hashtag"></i> رقم التشغيلة *
+              </label>
+              <input type="text" id="refNumber" class="form-control" placeholder="رقم التشغيلة">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-camera"></i> صورة العينة
+              </label>
+              <div class="image-upload-area">
+                <input type="file" id="imageInput" accept="image/*" capture="environment" style="display: none;" onchange="previewImage(event)">
+                <button type="button" class="btn-upload" onclick="document.getElementById('imageInput').click()">
+                  <i class="fas fa-camera"></i>
+                  <span>التقاط أو رفع صورة</span>
+                </button>
+                <div id="imagePreview" class="image-preview" style="display: none;">
+                  <img id="previewImg" src="" alt="Preview">
+                  <div class="image-actions">
+                    <button type="button" class="btn btn-sm btn-success" onclick="confirmImage()">
+                      <i class="fas fa-check"></i> تأكيد
+                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="reuploadImage()">
+                      <i class="fas fa-redo"></i> إعادة رفع
+                    </button>
+                  </div>
+                </div>
+                <div id="uploadedImageInfo" class="uploaded-info" style="display: none;">
+                  <i class="fas fa-check-circle"></i>
+                  <span>تم رفع الصورة بنجاح</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="button-group">
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-save"></i>
+              <span>حفظ</span>
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="goHome()">
+              <i class="fas fa-times"></i>
+              <span>إلغاء</span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</template>
+
+<!-- Portal C Template - NO CHANGES -->
+<template id="portalCTemplate">
+  <div class="portal-container portal-c-wide">
+    <div class="portal-header">
+      <div class="portal-title">
+        <i class="fas fa-chart-bar"></i>
+        <span>التقارير</span>
+      </div>
+      <button class="btn-back" onclick="goHome()">
+        <i class="fas fa-arrow-right"></i>
+        <span>العودة</span>
+      </button>
+    </div>
+    
+    <div class="portal-body">
+      <div class="form-group">
+        <label class="form-label">
+          <i class="fas fa-file-alt"></i> نوع التقرير
+        </label>
+        <div class="toggle-group">
+          <button type="button" class="toggle-btn" onclick="selectReportTypeC('tank')">
+            <i class="fas fa-fill-drip"></i> تقرير التانكات
+          </button>
+          <button type="button" class="toggle-btn" onclick="selectReportTypeC('analysis')">
+            <i class="fas fa-microscope"></i> تقرير التحليلات
+          </button>
+        </div>
+      </div>
+
+      <div id="filtersSection" class="filters-card" style="display: none;">
+        <div class="filters-header">
+          <i class="fas fa-filter"></i>
+          <span>الفلاتر والبحث</span>
+        </div>
+        
+        <div class="filters-body">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label class="filter-label">من تاريخ</label>
+              <input type="date" id="startDateC" class="form-control">
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">إلى تاريخ</label>
+              <input type="date" id="endDateC" class="form-control">
+            </div>
+          </div>
+
+          <div class="filter-row quick-date-btns">
+            <button class="btn btn-secondary btn-filter" onclick="setTodayDate()">
+              <i class="fas fa-calendar-day"></i>
+              <span>اليوم</span>
+            </button>
+            <button class="btn btn-secondary btn-filter" onclick="setWeekDate()">
+              <i class="fas fa-calendar-week"></i>
+              <span>هذا الأسبوع</span>
+            </button>
+            <button class="btn btn-secondary btn-filter" onclick="setMonthDate()">
+              <i class="fas fa-calendar-alt"></i>
+              <span>هذا الشهر</span>
+            </button>
+          </div>
+
+          <div class="filter-row">
+            <div class="search-box-wrapper">
+              <i class="fas fa-search search-icon"></i>
+              <input type="text" id="searchInput" class="form-control search-input" 
+                     placeholder="ابحث في التقرير..." 
+                     onkeyup="filterTable()">
+              <button class="btn-clear-search" id="clearSearchBtn" onclick="clearSearch()" style="display: none;">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="filter-row action-btns">
+            <button class="btn btn-primary" onclick="loadReportData()">
+              <i class="fas fa-sync-alt"></i>
+              <span>تحميل البيانات</span>
+            </button>
+            <button class="btn btn-secondary" onclick="resetFilters()">
+              <i class="fas fa-redo"></i>
+              <span>إعادة تعيين</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="reportDisplayC" style="display: none;">
+        <div id="summaryStats" class="summary-stats"></div>
+
+        <div class="export-buttons">
+          <button class="btn btn-success" onclick="exportToExcelC()">
+            <i class="fas fa-file-excel"></i>
+            <span>تصدير Excel</span>
+          </button>
+          <button class="btn btn-secondary" onclick="printReport()">
+            <i class="fas fa-print"></i>
+            <span>طباعة</span>
+          </button>
+        </div>
+
+        <div class="report-table-container">
+          <table id="reportTable" class="report-table">
+            <thead id="reportTableHead"></thead>
+            <tbody id="reportTableBody"></tbody>
+          </table>
+          
+          <div id="noDataMessage" class="no-data-message" style="display: none;">
+            <i class="fas fa-inbox"></i>
+            <p>لا توجد بيانات للفترة المحددة</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+  // Portal A variables
+  var selectedMaterial = '';
+  var selectedMaterialIndex = 0;
+  var selectedPreparation = '';
+  var averageReadingA = 0;
+
+  // Portal B variables
+  var sampleType = '';
+  var analysisMethod = '';
+  var uploadedImageData = null;
+  var uploadedImageUrl = '';
+  var uploadedFileId = '';
+  var imageConfirmed = false;
+  var averageReadingB = 0;
+
+  // Portal C variables
+  var currentReportTypeC = '';
+  var fullReportData = [];
+  var filteredReportData = [];
+
+  // Initialize Portal A
+  function initPortalA() {
+    showLoading();
+    google.script.run
+      .withSuccessHandler(function(options) {
+        hideLoading();
+        renderMaterialButtons(options);
+        setupPortalAListeners();
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        alert('حدث خطأ: ' + error.message);
+      })
+      .getMaterialOptions();
+  }
+
+  function renderMaterialButtons(options) {
+    const container = document.getElementById('materialBtns');
+    container.innerHTML = '';
+    
+    options.forEach(function(option, index) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'toggle-btn';
+      btn.setAttribute('data-value', option);
+      btn.setAttribute('data-index', index + 2);
+      btn.textContent = option;
+      btn.onclick = function() { selectMaterial(this); };
+      container.appendChild(btn);
+    });
+  }
+
+  function selectMaterial(btn) {
+    document.querySelectorAll('#materialBtns .toggle-btn').forEach(function(b) { 
+      b.classList.remove('active');
+    });
+    btn.classList.add('active');
+    
+    selectedMaterial = btn.getAttribute('data-value');
+    selectedMaterialIndex = parseInt(btn.getAttribute('data-index'));
+    
+    const prepGroup = document.getElementById('preparationGroup');
+    if (selectedMaterialIndex === 2 || selectedMaterialIndex === 3) {
+      prepGroup.style.display = 'block';
+    } else {
+      prepGroup.style.display = 'none';
+      selectedPreparation = '';
+      document.querySelectorAll('#preparationBtns .toggle-btn').forEach(function(b) { 
+        b.classList.remove('active');
+      });
+    }
+    
+    // Check if material is blossom or rose
+    const materialLower = selectedMaterial.toLowerCase().trim();
+    const isBlossomOrRose = (materialLower === 'blossom' || materialLower === 'rose');
+    
+    // Get reading inputs and serial input
+    const reading1 = document.getElementById('deviceReading1');
+    const reading2 = document.getElementById('deviceReading2');
+    const reading3 = document.getElementById('deviceReading3');
+    const serialInput = document.getElementById('serialNum');
+    const vvInput = document.getElementById('vvPercent');
+    const averageDisplay = document.getElementById('averageDisplayA');
+    
+    if (isBlossomOrRose) {
+      // Disable device readings
+      reading1.disabled = true;
+      reading2.disabled = true;
+      reading3.disabled = true;
+      reading1.removeAttribute('required');
+      reading2.removeAttribute('required');
+      reading3.removeAttribute('required');
+      reading1.value = '';
+      reading2.value = '';
+      reading3.value = '';
+      
+      // Disable serial number
+      serialInput.disabled = true;
+      serialInput.removeAttribute('required');
+      serialInput.value = '';
+      
+      // Clear v/v%
+      vvInput.value = '';
+      
+      // Hide average display
+      averageDisplay.style.display = 'none';
+      averageReadingA = 0;
+      
+      // Hide serial error if shown
+      document.getElementById('serialError').style.display = 'none';
+      
+    } else {
+      // Enable device readings
+      reading1.disabled = false;
+      reading2.disabled = false;
+      reading3.disabled = false;
+      
+      // Enable serial number
+      serialInput.disabled = false;
+      serialInput.setAttribute('required', 'required');
+      
+      // Clear values for fresh start
+      reading1.value = '';
+      reading2.value = '';
+      reading3.value = '';
+      serialInput.value = '';
+      vvInput.value = '';
+      averageDisplay.style.display = 'none';
+      averageReadingA = 0;
+    }
+  }
+
+  function setupPortalAListeners() {
+    document.querySelectorAll('#preparationBtns .toggle-btn').forEach(function(btn) {
+      btn.onclick = function() {
+        document.querySelectorAll('#preparationBtns .toggle-btn').forEach(function(b) { 
+          b.classList.remove('active');
+        });
+        this.classList.add('active');
+        selectedPreparation = this.getAttribute('data-value');
+      };
+    });
+
+    const serialInput = document.getElementById('serialNum');
+    serialInput.addEventListener('blur', function() {
+      const serial = parseInt(this.value);
+      if (!isNaN(serial)) {
+        showLoading();
+        google.script.run
+          .withSuccessHandler(function(result) {
+            hideLoading();
+            const errDiv = document.getElementById('serialError');
+            if (!result.valid) {
+              errDiv.querySelector('span').textContent = result.message;
+              errDiv.style.display = 'flex';
+            } else {
+              errDiv.style.display = 'none';
+            }
+          })
+          .withFailureHandler(function(error) {
+            hideLoading();
+            alert('خطأ: ' + error.message);
+          })
+          .validateSerialNumber(serial);
+      }
+    });
+  }
+
+  function calculateAverageA() {
+    const reading1 = document.getElementById('deviceReading1').value.replace(',', '.');
+    const reading2 = document.getElementById('deviceReading2').value.replace(',', '.');
+    const reading3 = document.getElementById('deviceReading3').value.replace(',', '.');
+    
+    var readings = [];
+    
+    if (reading1 && !isNaN(reading1)) {
+      var val1 = parseFloat(reading1);
+      if (val1 >= 10) val1 = val1 / 100;
+      document.getElementById('deviceReading1').value = val1.toFixed(2);
+      readings.push(val1);
+    }
+    
+    if (reading2 && !isNaN(reading2)) {
+      var val2 = parseFloat(reading2);
+      if (val2 >= 10) val2 = val2 / 100;
+      document.getElementById('deviceReading2').value = val2.toFixed(2);
+      readings.push(val2);
+    }
+    
+    if (reading3 && !isNaN(reading3)) {
+      var val3 = parseFloat(reading3);
+      if (val3 >= 10) val3 = val3 / 100;
+      document.getElementById('deviceReading3').value = val3.toFixed(2);
+      readings.push(val3);
+    }
+    
+    if (readings.length > 0) {
+      averageReadingA = readings.reduce(function(a, b) { return a + b; }, 0) / readings.length;
+      
+      document.getElementById('averageValueA').textContent = averageReadingA.toFixed(2);
+      document.getElementById('averageDisplayA').style.display = 'flex';
+      
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          document.getElementById('vvPercent').value = (result * 100).toFixed(4);
+        })
+        .withFailureHandler(hideLoading)
+        .calculateVV(averageReadingA);
+    } else {
+      document.getElementById('averageDisplayA').style.display = 'none';
+      document.getElementById('vvPercent').value = '';
+      averageReadingA = 0;
+    }
+  }
+
+  function submitFormA(event) {
+    event.preventDefault();
+
+    if (!selectedMaterial) {
+      alert('الرجاء اختيار نوع الخامة');
+      return;
+    }
+
+    if ((selectedMaterialIndex === 2 || selectedMaterialIndex === 3) && !selectedPreparation) {
+      alert('الرجاء اختيار طريقة التحضير');
+      return;
+    }
+
+    if (averageReadingA === 0) {
+      alert('الرجاء إدخال قراءة واحدة على الأقل');
+      return;
+    }
+
+    const quantity = document.getElementById('quantity').value;
+    const serialNum = document.getElementById('serialNum').value;
+    const vvPercentDisplay = document.getElementById('vvPercent').value;
+
+    if (!quantity || !serialNum) {
+      alert('الرجاء ملء جميع الحقول المطلوبة');
+      return;
+    }
+
+    if (document.getElementById('serialError').style.display !== 'none') {
+      alert('الرجاء تصحيح رقم العينة');
+      return;
+    }
+
+    const data = {
+      material: selectedMaterial,
+      materialIndex: selectedMaterialIndex,
+      preparation: selectedPreparation,
+      quantity: parseFloat(quantity),
+      deviceReading: averageReadingA,
+      serialNumber: parseInt(serialNum),
+      calculatedValue: parseFloat(vvPercentDisplay) / 100
+    };
+
+    showLoading();
+    google.script.run
+      .withSuccessHandler(function(result) {
+        hideLoading();
+        if (result.success) {
+          document.getElementById('successMsg').style.display = 'flex';
+          document.getElementById('formA').reset();
+          selectedMaterial = '';
+          selectedMaterialIndex = 0;
+          selectedPreparation = '';
+          averageReadingA = 0;
+          document.querySelectorAll('.toggle-btn').forEach(function(b) { 
+            b.classList.remove('active');
+          });
+          document.getElementById('preparationGroup').style.display = 'none';
+          document.getElementById('averageDisplayA').style.display = 'none';
+          
+          setTimeout(function() {
+            goHome();
+          }, 2000);
+        }
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        alert('خطأ في حفظ البيانات: ' + error.message);
+      })
+      .savePortalAData(data);
+  }
+
+  // Initialize Portal B
+  function initPortalB() {
+    showLoading();
+    
+    google.script.run
+      .withSuccessHandler(function(tankSerials) {
+        const tankSelect = document.getElementById('tankSerial');
+        tankSerials.forEach(function(serial) {
+          const option = document.createElement('option');
+          option.value = serial;
+          option.textContent = serial;
+          tankSelect.appendChild(option);
+        });
+        
+        google.script.run
+          .withSuccessHandler(function(products) {
+            hideLoading();
+            const productSelect = document.getElementById('productName');
+            products.forEach(function(product) {
+              const option = document.createElement('option');
+              option.value = product;
+              option.textContent = product;
+              productSelect.appendChild(option);
+            });
+            
+            setupPortalBListeners();
+          })
+          .withFailureHandler(function(error) {
+            hideLoading();
+            alert('خطأ في تحميل المنتجات: ' + error.message);
+          })
+          .getProductNames();
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        alert('خطأ في تحميل أرقام التانك: ' + error.message);
+      })
+      .getTankSerialNumbers();
+  }
+
+  function setupPortalBListeners() {
+    const productSelect = document.getElementById('productName');
+    if (productSelect) {
+      productSelect.addEventListener('change', function() {
+        if (this.value) {
+          document.getElementById('commonFields').style.display = 'block';
+          document.getElementById('productOnlyFields').style.display = 'block';
+        } else {
+          document.getElementById('commonFields').style.display = 'none';
+        }
+      });
+    }
+  }
+
+  function selectSampleType(type) {
+    sampleType = type;
+    
+    document.querySelectorAll('[data-sample-type]').forEach(function(btn) {
+      btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    if (type === 'tank') {
+      document.getElementById('tankPath').style.display = 'block';
+      document.getElementById('productPath').style.display = 'none';
+      document.getElementById('productOnlyFields').style.display = 'none';
+    } else {
+      document.getElementById('tankPath').style.display = 'none';
+      document.getElementById('productPath').style.display = 'block';
+    }
+    
+    document.getElementById('commonFields').style.display = 'none';
+    document.getElementById('tankInfoCard').style.display = 'none';
+    document.getElementById('previousAnalysisTip').style.display = 'none';
+  }
+
+  function loadTankInfo() {
+    const serial = document.getElementById('tankSerial').value;
+    if (!serial) {
+      document.getElementById('tankInfoCard').style.display = 'none';
+      document.getElementById('commonFields').style.display = 'none';
+      document.getElementById('previousAnalysisTip').style.display = 'none';
+      return;
+    }
+    
+    showLoading();
+    google.script.run
+      .withSuccessHandler(function(info) {
+        hideLoading();
+        
+        document.getElementById('tankDate').textContent = info.timestamp;
+        document.getElementById('tankReading1').textContent = info.deviceReading1;
+        document.getElementById('tankPercent').textContent = (info.vvPercent * 100).toFixed(2) + '%';
+        
+        document.getElementById('tankInfoCard').style.display = 'block';
+        document.getElementById('commonFields').style.display = 'block';
+        
+        const hasPreviousDevice = info.previousDeviceReading !== '' && info.previousDeviceReading !== null;
+        const hasPreviousLab = info.previousLabResult !== '' && info.previousLabResult !== null;
+        
+        if (hasPreviousDevice || hasPreviousLab) {
+          var tipHTML = '';
+          
+          if (hasPreviousDevice) {
+            tipHTML += '<div class="analysis-subcard device-subcard">';
+            tipHTML += '<div class="subcard-icon"><i class="fas fa-mobile-screen-button"></i></div>';
+            tipHTML += '<div class="subcard-content">';
+            tipHTML += '<div class="subcard-title">تحليل بالجهاز</div>';
+            tipHTML += '<div class="subcard-reading">قراءة: ' + info.previousDeviceReading + ' pH</div>';
+            tipHTML += '<div class="subcard-result">النتيجة: ' + (info.previousVVPercent * 100).toFixed(2) + '%</div>';
+            if (info.deviceAnalysisTime) {
+              tipHTML += '<div class="subcard-time">' + info.deviceAnalysisTime + '</div>';
+            }
+            tipHTML += '</div></div>';
+          }
+          
+          if (hasPreviousLab) {
+            tipHTML += '<div class="analysis-subcard lab-subcard">';
+            tipHTML += '<div class="subcard-icon"><i class="fas fa-flask-vial"></i></div>';
+            tipHTML += '<div class="subcard-content">';
+            tipHTML += '<div class="subcard-title">تحليل معملي</div>';
+            tipHTML += '<div class="subcard-result">النتيجة: ' + (info.previousLabResult * 100).toFixed(2) + '%</div>';
+            if (info.labAnalysisTime) {
+              tipHTML += '<div class="subcard-time">' + info.labAnalysisTime + '</div>';
+            }
+            tipHTML += '</div></div>';
+          }
+          
+          document.getElementById('previousAnalysisTipContent').innerHTML = tipHTML;
+          document.getElementById('previousAnalysisTip').style.display = 'flex';
+        } else {
+          document.getElementById('previousAnalysisTip').style.display = 'none';
+        }
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        alert('خطأ: ' + error.message);
+      })
+      .getTankInfo(parseInt(serial));
+  }
+
+  function selectAnalysisMethod(method) {
+    analysisMethod = method;
+    
+    document.querySelectorAll('[data-analysis-method]').forEach(function(btn) {
+      btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    if (method === 'device') {
+      document.getElementById('deviceReadingsGroup').style.display = 'block';
+      document.getElementById('labResultGroup').style.display = 'none';
+      
+      document.getElementById('deviceReadingB1').value = '';
+      document.getElementById('deviceReadingB2').value = '';
+      document.getElementById('deviceReadingB3').value = '';
+      document.getElementById('averageDisplayB').style.display = 'none';
+      document.getElementById('calculatedVV').style.display = 'none';
+      averageReadingB = 0;
+    } else {
+      document.getElementById('deviceReadingsGroup').style.display = 'none';
+      document.getElementById('labResultGroup').style.display = 'block';
+      document.getElementById('labResult').value = '';
+    }
+  }
+
+  function calculateAverageB() {
+    const reading1 = document.getElementById('deviceReadingB1').value.replace(',', '.');
+    const reading2 = document.getElementById('deviceReadingB2').value.replace(',', '.');
+    const reading3 = document.getElementById('deviceReadingB3').value.replace(',', '.');
+    
+    var readings = [];
+    
+    if (reading1 && !isNaN(reading1)) {
+      var val1 = parseFloat(reading1);
+      if (val1 >= 10) val1 = val1 / 100;
+      document.getElementById('deviceReadingB1').value = val1.toFixed(2);
+      readings.push(val1);
+    }
+    
+    if (reading2 && !isNaN(reading2)) {
+      var val2 = parseFloat(reading2);
+      if (val2 >= 10) val2 = val2 / 100;
+      document.getElementById('deviceReadingB2').value = val2.toFixed(2);
+      readings.push(val2);
+    }
+    
+    if (reading3 && !isNaN(reading3)) {
+      var val3 = parseFloat(reading3);
+      if (val3 >= 10) val3 = val3 / 100;
+      document.getElementById('deviceReadingB3').value = val3.toFixed(2);
+      readings.push(val3);
+    }
+    
+    if (readings.length > 0) {
+      averageReadingB = readings.reduce(function(a, b) { return a + b; }, 0) / readings.length;
+      
+      document.getElementById('averageValueB').textContent = averageReadingB.toFixed(2);
+      document.getElementById('averageDisplayB').style.display = 'flex';
+      
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          document.getElementById('vvValue').textContent = (result * 100).toFixed(2);
+          document.getElementById('calculatedVV').style.display = 'flex';
+        })
+        .withFailureHandler(hideLoading)
+        .calculateVV(averageReadingB);
+    } else {
+      document.getElementById('averageDisplayB').style.display = 'none';
+      document.getElementById('calculatedVV').style.display = 'none';
+      averageReadingB = 0;
+    }
+  }
+
+  function previewImage(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      uploadedImageData = e.target.result;
+      document.getElementById('previewImg').src = e.target.result;
+      document.getElementById('imagePreview').style.display = 'block';
+      document.getElementById('uploadedImageInfo').style.display = 'none';
+      imageConfirmed = false;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function confirmImage() {
+    if (!uploadedImageData) return;
+    
+    const refNum = document.getElementById('refNumber').value || 'TEMP';
+    var concentration = '';
+    
+    if (analysisMethod === 'device') {
+      concentration = document.getElementById('vvValue').textContent || '0.0';
+    } else {
+      concentration = document.getElementById('labResult').value || '0.0';
+    }
+    
+    const fileName = refNum + '_' + concentration + '%.jpg';
+    
+    showLoading();
+    google.script.run
+      .withSuccessHandler(function(result) {
+        hideLoading();
+        if (result.success) {
+          uploadedImageUrl = result.url;
+          uploadedFileId = result.id;
+          imageConfirmed = true;
+          
+          document.getElementById('imagePreview').style.display = 'none';
+          document.getElementById('uploadedImageInfo').style.display = 'flex';
+        }
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        alert('خطأ في رفع الصورة: ' + error.message);
+      })
+      .uploadImageToDrive(uploadedImageData, fileName);
+  }
+
+  function reuploadImage() {
+    if (uploadedFileId) {
+      google.script.run.deleteImageFromDrive(uploadedFileId);
+    }
+    
+    uploadedImageData = null;
+    uploadedImageUrl = '';
+    uploadedFileId = '';
+    imageConfirmed = false;
+    
+    document.getElementById('imagePreview').style.display = 'none';
+    document.getElementById('uploadedImageInfo').style.display = 'none';
+    document.getElementById('imageInput').value = '';
+    document.getElementById('imageInput').click();
+  }
+
+  function submitFormB(event) {
+    event.preventDefault();
+    
+    if (!sampleType) {
+      alert('الرجاء اختيار نوع العينة');
+      return;
+    }
+    
+    if (!analysisMethod) {
+      alert('الرجاء اختيار طريقة التحليل');
+      return;
+    }
+    
+    if (sampleType === 'tank') {
+      const serial = document.getElementById('tankSerial').value;
+      if (!serial) {
+        alert('الرجاء اختيار رقم العينة');
+        return;
+      }
+      
+      if (analysisMethod === 'device') {
+        if (averageReadingB === 0) {
+          alert('الرجاء إدخال قراءة واحدة على الأقل');
+          return;
+        }
+        
+        const data = {
+          serialNumber: parseInt(serial),
+          analysisMethod: analysisMethod,
+          deviceReading: averageReadingB,
+          vvPercent: parseFloat(document.getElementById('vvValue').textContent) / 100,
+          labResult: null
+        };
+        
+        showLoading();
+        google.script.run
+          .withSuccessHandler(handleSubmitSuccess)
+          .withFailureHandler(handleSubmitError)
+          .updateTankAnalysis(data);
+      } else {
+        const labResultValue = document.getElementById('labResult').value;
+        if (!labResultValue) {
+          alert('الرجاء إدخال نتيجة التحليل المعملي');
+          return;
+        }
+        
+        const data = {
+          serialNumber: parseInt(serial),
+          analysisMethod: analysisMethod,
+          deviceReading: null,
+          vvPercent: null,
+          labResult: parseFloat(labResultValue)
+        };
+        
+        showLoading();
+        google.script.run
+          .withSuccessHandler(handleSubmitSuccess)
+          .withFailureHandler(handleSubmitError)
+          .updateTankAnalysis(data);
+      }
+        
+    } else {
+      const productName = document.getElementById('productName').value;
+      const refNumber = document.getElementById('refNumber').value;
+      
+      if (!productName) {
+        alert('الرجاء اختيار اسم المنتج');
+        return;
+      }
+      
+      if (!refNumber) {
+        alert('الرجاء إدخال رقم التشغيلة');
+        return;
+      }
+      
+      if (analysisMethod === 'device') {
+        if (averageReadingB === 0) {
+          alert('الرجاء إدخال قراءة واحدة على الأقل');
+          return;
+        }
+        
+        const data = {
+          productName: productName,
+          analysisMethod: analysisMethod,
+          deviceReading: averageReadingB,
+          vvPercent: parseFloat(document.getElementById('vvValue').textContent) / 100,
+          labResult: null,
+          referenceNumber: refNumber,
+          imageUrl: uploadedImageUrl
+        };
+        
+        showLoading();
+        google.script.run
+          .withSuccessHandler(handleSubmitSuccess)
+          .withFailureHandler(handleSubmitError)
+          .saveProductAnalysis(data);
+      } else {
+        const labResultValue = document.getElementById('labResult').value;
+        if (!labResultValue) {
+          alert('الرجاء إدخال نتيجة التحليل المعملي');
+          return;
+        }
+        
+        const data = {
+          productName: productName,
+          analysisMethod: analysisMethod,
+          deviceReading: null,
+          vvPercent: null,
+          labResult: parseFloat(labResultValue),
+          referenceNumber: refNumber,
+          imageUrl: uploadedImageUrl
+        };
+        
+        showLoading();
+        google.script.run
+          .withSuccessHandler(handleSubmitSuccess)
+          .withFailureHandler(handleSubmitError)
+          .saveProductAnalysis(data);
+      }
+    }
+  }
+
+  function handleSubmitSuccess(result) {
+    hideLoading();
+    if (result.success) {
+      document.getElementById('successMsgB').style.display = 'flex';
+      document.getElementById('formB').reset();
+      
+      sampleType = '';
+      analysisMethod = '';
+      uploadedImageData = null;
+      uploadedImageUrl = '';
+      uploadedFileId = '';
+      imageConfirmed = false;
+      averageReadingB = 0;
+      
+      document.querySelectorAll('.toggle-btn').forEach(function(b) { 
+        b.classList.remove('active');
+      });
+      document.getElementById('tankPath').style.display = 'none';
+      document.getElementById('productPath').style.display = 'none';
+      document.getElementById('commonFields').style.display = 'none';
+      document.getElementById('tankInfoCard').style.display = 'none';
+      document.getElementById('imagePreview').style.display = 'none';
+      document.getElementById('uploadedImageInfo').style.display = 'none';
+      document.getElementById('deviceReadingsGroup').style.display = 'none';
+      document.getElementById('labResultGroup').style.display = 'none';
+      
+      setTimeout(function() {
+        goHome();
+      }, 2000);
+    }
+  }
+
+  function handleSubmitError(error) {
+    hideLoading();
+    alert('خطأ في حفظ البيانات: ' + error.message);
+  }
+
+  // Portal C Functions - UNCHANGED
+  function initPortalC() {
+    setTodayDate();
+  }
+
+  function selectReportTypeC(type) {
+    currentReportTypeC = type;
+    
+    document.querySelectorAll('#filtersSection ~ div .toggle-btn').forEach(function(btn) {
+      btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    document.getElementById('filtersSection').style.display = 'block';
+    document.getElementById('reportDisplayC').style.display = 'none';
+    
+    loadReportData();
+  }
+
+  function setTodayDate() {
+    const today = new Date();
+    const dateStr = formatDateForInput(today);
+    document.getElementById('startDateC').value = dateStr;
+    document.getElementById('endDateC').value = dateStr;
+  }
+
+  function setWeekDate() {
+    const today = new Date();
+    const weekAgo = new Date();
+    weekAgo.setDate(today.getDate() - 7);
+    
+    document.getElementById('startDateC').value = formatDateForInput(weekAgo);
+    document.getElementById('endDateC').value = formatDateForInput(today);
+  }
+
+  function setMonthDate() {
+    const today = new Date();
+    const monthAgo = new Date();
+    monthAgo.setMonth(today.getMonth() - 1);
+    
+    document.getElementById('startDateC').value = formatDateForInput(monthAgo);
+    document.getElementById('endDateC').value = formatDateForInput(today);
+  }
+
+  function formatDateForInput(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
+  }
+
+  function resetFilters() {
+    setTodayDate();
+    document.getElementById('searchInput').value = '';
+    document.getElementById('clearSearchBtn').style.display = 'none';
+    loadReportData();
+  }
+
+  function loadReportData() {
+    if (!currentReportTypeC) {
+      alert('الرجاء اختيار نوع التقرير');
+      return;
+    }
+    
+    const startDate = document.getElementById('startDateC').value;
+    const endDate = document.getElementById('endDateC').value;
+    
+    if (!startDate || !endDate) {
+      alert('الرجاء تحديد الفترة الزمنية');
+      return;
+    }
+    
+    if (new Date(startDate) > new Date(endDate)) {
+      alert('تاريخ البداية يجب أن يكون قبل تاريخ النهاية');
+      return;
+    }
+    
+    showLoading();
+    
+    google.script.run
+      .withSuccessHandler(function(data) {
+        hideLoading();
+        fullReportData = data;
+        filteredReportData = data;
+        displayReport(data);
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        alert('خطأ في تحميل البيانات: ' + error.message);
+      })
+      .getReportData(currentReportTypeC, startDate, endDate);
+  }
+
+  function displayReport(data) {
+    document.getElementById('reportDisplayC').style.display = 'block';
+    
+    if (!data || data.length === 0) {
+      document.getElementById('summaryStats').innerHTML = '';
+      document.getElementById('reportTable').style.display = 'none';
+      document.getElementById('noDataMessage').style.display = 'block';
+      return;
+    }
+    
+    document.getElementById('reportTable').style.display = 'table';
+    document.getElementById('noDataMessage').style.display = 'none';
+    
+    displaySummaryStats(data);
+    
+    if (currentReportTypeC === 'tank') {
+      displayTankReport(data);
+    } else {
+      displayAnalysisReport(data);
+    }
+  }
+
+  function displaySummaryStats(data) {
+    const statsContainer = document.getElementById('summaryStats');
+    
+    if (currentReportTypeC === 'tank') {
+      const vvValues = data
+        .map(function(row) { return parseFloat(row.vv); })
+        .filter(function(val) { return !isNaN(val); });
+      
+      const avg = vvValues.length > 0 
+        ? (vvValues.reduce(function(a, b) { return a + b; }, 0) / vvValues.length).toFixed(2) 
+        : '0.00';
+      
+      const max = vvValues.length > 0 
+        ? Math.max.apply(null, vvValues).toFixed(2) 
+        : '0.00';
+      
+      const min = vvValues.length > 0 
+        ? Math.min.apply(null, vvValues).toFixed(2) 
+        : '0.00';
+      
+      statsContainer.innerHTML = 
+        '<div class="stat-card">' +
+        '<div class="stat-icon blue"><i class="fas fa-fill-drip"></i></div>' +
+        '<div class="stat-value">' + data.length + '</div>' +
+        '<div class="stat-label">إجمالي التانكات</div>' +
+        '</div>' +
+        '<div class="stat-card">' +
+        '<div class="stat-icon green"><i class="fas fa-chart-line"></i></div>' +
+        '<div class="stat-value">' + avg + '%</div>' +
+        '<div class="stat-label">متوسط v/v%</div>' +
+        '</div>' +
+        '<div class="stat-card">' +
+        '<div class="stat-icon yellow"><i class="fas fa-arrow-up"></i></div>' +
+        '<div class="stat-value">' + max + '%</div>' +
+        '<div class="stat-label">أعلى نسبة</div>' +
+        '</div>' +
+        '<div class="stat-card">' +
+        '<div class="stat-icon yellow"><i class="fas fa-arrow-down"></i></div>' +
+        '<div class="stat-value">' + min + '%</div>' +
+        '<div class="stat-label">أقل نسبة</div>' +
+        '</div>';
+    } else {
+      const deviceCount = data.filter(function(row) { return row.method === 'الجهاز'; }).length;
+      const labCount = data.filter(function(row) { return row.method === 'معملي'; }).length;
+      
+      statsContainer.innerHTML = 
+        '<div class="stat-card">' +
+        '<div class="stat-icon blue"><i class="fas fa-microscope"></i></div>' +
+        '<div class="stat-value">' + data.length + '</div>' +
+        '<div class="stat-label">إجمالي التحليلات</div>' +
+        '</div>' +
+        '<div class="stat-card">' +
+        '<div class="stat-icon green"><i class="fas fa-mobile-screen-button"></i></div>' +
+        '<div class="stat-value">' + deviceCount + '</div>' +
+        '<div class="stat-label">تحليل بالجهاز</div>' +
+        '</div>' +
+        '<div class="stat-card">' +
+        '<div class="stat-icon yellow"><i class="fas fa-flask-vial"></i></div>' +
+        '<div class="stat-value">' + labCount + '</div>' +
+        '<div class="stat-label">تحليل معملي</div>' +
+        '</div>';
+    }
+  }
+
+  function displayTankReport(data) {
+    const thead = document.getElementById('reportTableHead');
+    const tbody = document.getElementById('reportTableBody');
+    
+    // UPDATED: Added header for Lab Result
+    thead.innerHTML = 
+      '<tr>' +
+      '<th>التاريخ</th>' +
+      '<th>رقم العينة</th>' +
+      '<th>نوع الخامة</th>' +
+      '<th>طريقة التحضير</th>' +
+      '<th>العدد</th>' +
+      '<th>قراءة الجهاز</th>' +
+      '<th>v/v%</th>' +
+      '<th>نتيجة المعمل</th>' +
+      '</tr>';
+      
+    tbody.innerHTML = '';
+    
+    data.forEach(function(row) {
+      const tr = document.createElement('tr');
+      // UPDATED: Added cell for Lab Result
+      tr.innerHTML = 
+        '<td>' + row.date + '</td>' +
+        '<td><strong>' + row.serial + '</strong></td>' +
+        '<td>' + row.material + '</td>' +
+        '<td>' + (row.preparation || '-') + '</td>' +
+        '<td>' + (row.quantity || '-') + '</td>' +
+        '<td>' + row.reading + ' pH</td>' +
+        '<td><strong>' + row.vv + '%</strong></td>' +
+        '<td>' + row.labResult + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function displayAnalysisReport(data) {
+    const thead = document.getElementById('reportTableHead');
+    const tbody = document.getElementById('reportTableBody');
+    
+    thead.innerHTML = 
+      '<tr>' +
+      '<th>التاريخ</th>' +
+      '<th>اسم المنتج</th>' +
+      '<th>طريقة التحليل</th>' +
+      '<th>قراءة الجهاز</th>' +
+      '<th>v/v%</th>' +
+      '<th>نتيجة المعمل</th>' +
+      '<th>رقم التشغيلة</th>' +
+      '</tr>';
+    
+    tbody.innerHTML = '';
+    
+    data.forEach(function(row) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = 
+        '<td>' + row.date + '</td>' +
+        '<td><strong>' + row.product + '</strong></td>' +
+        '<td>' + row.method + '</td>' +
+        '<td>' + (row.deviceReading !== 'N/A' ? row.deviceReading + ' pH' : '-') + '</td>' +
+        '<td>' + (row.vv !== 'N/A' ? row.vv : '-') + '</td>' +
+        '<td>' + (row.labResult !== 'N/A' ? row.labResult : '-') + '</td>' +
+        '<td>' + row.refNumber + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function filterTable() {
+    const searchInput = document.getElementById('searchInput');
+    const searchTerm = searchInput.value.trim().toLowerCase();
+    const clearBtn = document.getElementById('clearSearchBtn');
+    
+    clearBtn.style.display = searchTerm ? 'block' : 'none';
+    
+    if (!searchTerm) {
+      filteredReportData = fullReportData;
+      displayReport(fullReportData);
+      return;
+    }
+    
+    filteredReportData = fullReportData.filter(function(row) {
+      const rowText = Object.values(row).join('|').toLowerCase();
+      return rowText.includes(searchTerm);
+    });
+    
+    displayReport(filteredReportData);
+    highlightSearchTerm(searchTerm);
+  }
+
+  function highlightSearchTerm(term) {
+    const tbody = document.getElementById('reportTableBody');
+    const cells = tbody.getElementsByTagName('td');
+    
+    Array.from(cells).forEach(function(cell) {
+      const text = cell.textContent;
+      const lowerText = text.toLowerCase();
+      const index = lowerText.indexOf(term);
+      
+      if (index !== -1) {
+        const before = text.substring(0, index);
+        const match = text.substring(index, index + term.length);
+        const after = text.substring(index + term.length);
+        
+        cell.innerHTML = before + '<span class="highlight">' + match + '</span>' + after;
+      }
+    });
+  }
+
+  function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('clearSearchBtn').style.display = 'none';
+    filteredReportData = fullReportData;
+    displayReport(fullReportData);
+  }
+
+  function exportToExcelC() {
+    if (!filteredReportData || filteredReportData.length === 0) {
+      alert('لا توجد بيانات للتصدير');
+      return;
+    }
+    
+    showLoading();
+    
+    google.script.run
+      .withSuccessHandler(function(url) {
+        hideLoading();
+        window.open(url, '_blank');
+        alert('تم تصدير التقرير بنجاح');
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        alert('خطأ في التصدير: ' + error.message);
+      })
+      .exportReportToExcel(currentReportTypeC, filteredReportData);
+  }
+
+  function printReport() {
+    if (!filteredReportData || filteredReportData.length === 0) {
+      alert('لا توجد بيانات للطباعة');
+      return;
+    }
+    
+    window.print();
+  }
+</script>
