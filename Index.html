@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>نظام إدارة العينات</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="application-name" content="نظام إدارة العينات">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="إدارة العينات">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1e40af">
+  
+  <!-- App Icons - Replace FILE_ID with your actual Google Drive file IDs -->
+  <link rel="icon" href="https://drive.google.com/uc?export=view&id=15pR4LNmPS2_RNvcPPER0hfrFsradBxVM" type="image/x-icon">
+  <link rel="shortcut icon" href="https://drive.google.com/uc?export=view&id=15pR4LNmPS2_RNvcPPER0hfrFsradBxVM" type="image/x-icon">
+  
+  <!-- Apple Touch Icons -->
+  <link rel="apple-touch-icon" href="https://drive.google.com/uc?export=view&id=14nCTBH2QjcDeOAATsm6uHar9BN-FBfKc">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://drive.google.com/uc?export=view&id=14nCTBH2QjcDeOAATsm6uHar9BN-FBfKc">
+  
+  <!-- Android/Chrome Icons -->
+  <link rel="icon" type="image/png" sizes="192x192" href="https://drive.google.com/uc?export=view&id=1COktSr1FHOmiyPVrN8ylmbQnlIRKCz_n">
+  <link rel="icon" type="image/png" sizes="512x512" href="https://drive.google.com/uc?export=view&id=1XAS21mdkEHslH7_DhFRBWKO7U5nLw8D3">
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <?!= include('STYLE'); ?>
+</head>
+<body>
+  <div id="app">
+    <!-- Home Page -->
+    <div id="homePage">
+      <header class="app-header">
+        <h1>تشغيل و تحليل عينات لمنتجات الطاووس</h1>
+      </header>
+
+      <div class="content-wrapper">
+        <div id="homeContent" class="content-container">
+
+          <!-- Main Buttons -->
+          <div class="button-grid button-grid-horizontal">
+            <button class="main-btn btn-blue" onclick="promptPassword('A')">
+              <div class="btn-icon">
+                <i class="fas fa-cogs"></i>
+              </div>
+              <div class="btn-content">
+                <div class="btn-title">ارسال تانك</div>
+                <div class="btn-subtitle">معالجة و إرسال البيانات</div>
+              </div>
+            </button>
+
+            <button class="main-btn btn-green" onclick="promptPassword('B')">
+              <div class="btn-icon">
+                <i class="fas fa-flask"></i>
+              </div>
+              <div class="btn-content">
+                <div class="btn-title">تحليل عينة</div>
+                <div class="btn-subtitle">إدخال نتائج التحليل</div>
+              </div>
+            </button>
+
+            <button class="main-btn btn-grey btn-small" onclick="showPortal('C')">
+              <div class="btn-icon">
+                <i class="fas fa-chart-bar"></i>
+              </div>
+              <div class="btn-content">
+                <div class="btn-title">تقارير</div>
+              </div>
+            </button>
+          </div>
+          
+          <!-- Tanks Dashboard -->
+          <div id="tanksDashboard" class="dashboard-section">
+            <div class="dashboard-header">
+              <div class="dashboard-title">
+                <i class="fas fa-fill-drip"></i>
+                <span>لوحة التانكات - اليوم</span>
+              </div>
+              <button class="btn-refresh" onclick="refreshTanksDashboard()" title="تحديث">
+                <i class="fas fa-sync-alt"></i>
+              </button>
+            </div>
+            <div class="dashboard-cards-container">
+              <div class="dashboard-cards" id="tanksDashboardCards">
+                <div class="dashboard-loading">
+                  <i class="fas fa-spinner fa-spin"></i>
+                  <span>جاري التحميل...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Analysis Dashboard -->
+          <div id="analysisDashboard" class="dashboard-section">
+            <div class="dashboard-header">
+              <div class="dashboard-title">
+                <i class="fas fa-microscope"></i>
+                <span>لوحة التحليلات - اليوم</span>
+              </div>
+              <button class="btn-refresh" onclick="refreshAnalysisDashboard()" title="تحديث">
+                <i class="fas fa-sync-alt"></i>
+              </button>
+            </div>
+            <div class="dashboard-cards-container">
+              <div class="dashboard-cards" id="analysisDashboardCards">
+                <div class="dashboard-loading">
+                  <i class="fas fa-spinner fa-spin"></i>
+                  <span>جاري التحميل...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Password Section -->
+        <div id="passwordSection" class="content-container" style="display: none;">
+          <div class="password-card">
+            <div class="password-header">
+              <div class="password-icon">
+                <i class="fas fa-lock"></i>
+              </div>
+              <h3>تأمين الدخول</h3>
+              <p id="passwordPortalName">الرجاء إدخال رمز المرور</p>
+            </div>
+            
+            <div class="form-group">
+              <input type="password" id="passwordInput" class="form-control" placeholder="رمز المرور" autocomplete="off" inputmode="numeric">
+              <div id="passwordError" class="error-msg" style="display: none;">
+                <i class="fas fa-exclamation-circle"></i>
+                <span>رمز المرور غير صحيح</span>
+              </div>
+            </div>
+
+            <div class="button-group">
+              <button class="btn btn-primary" onclick="verifyPassword()">
+                <i class="fas fa-check"></i>
+                <span>تأكيد</span>
+              </button>
+              <button class="btn btn-secondary" onclick="cancelPassword()">
+                <i class="fas fa-times"></i>
+                <span>إلغاء</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Portal Pages -->
+    <div id="portalPage" style="display: none;"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+      <div class="spinner"></div>
+      <p>جاري التحميل...</p>
+    </div>
+  </div>
+
+  <?!= include('INTERFACE'); ?>
+
+  <script>
+    var currentPortal = '';
+    var tanksRefreshInterval = null;
+    var analysisRefreshInterval = null;
+
+    function promptPassword(portal) {
+      currentPortal = portal;
+      const portalNames = {
+        'A': 'ارسال تانك',
+        'B': 'تحليل عينة'
+      };
+      
+      document.getElementById('passwordPortalName').textContent = 'الرجاء إدخال رمز المرور لـ ' + portalNames[portal];
+      document.getElementById('homeContent').style.display = 'none';
+      document.getElementById('passwordSection').style.display = 'block';
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('passwordError').style.display = 'none';
+      document.getElementById('passwordInput').focus();
+    }
+
+    function cancelPassword() {
+      document.getElementById('passwordSection').style.display = 'none';
+      document.getElementById('homeContent').style.display = 'block';
+      currentPortal = '';
+    }
+
+    function verifyPassword() {
+      const password = document.getElementById('passwordInput').value.trim();
+      
+      if (!password) {
+        document.getElementById('passwordError').style.display = 'flex';
+        return;
+      }
+      
+      showLoading();
+      
+      google.script.run
+        .withSuccessHandler(function(isValid) {
+          hideLoading();
+          if (isValid) {
+            showPortal(currentPortal);
+          } else {
+            document.getElementById('passwordError').style.display = 'flex';
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          alert('حدث خطأ: ' + error.message);
+        })
+        .checkPassword(currentPortal, password);
+    }
+
+    function showPortal(portal) {
+      document.getElementById('homePage').style.display = 'none';
+      const portalPage = document.getElementById('portalPage');
+      portalPage.style.display = 'block';
+      
+      if (portal === 'A') {
+        portalPage.innerHTML = document.getElementById('portalATemplate').innerHTML;
+        initPortalA();
+      } else if (portal === 'B') {
+        portalPage.innerHTML = document.getElementById('portalBTemplate').innerHTML;
+        initPortalB();
+      } else if (portal === 'C') {
+        portalPage.innerHTML = document.getElementById('portalCTemplate').innerHTML;
+        initPortalC();
+      }
+    }
+
+    function goHome() {
+      document.getElementById('portalPage').style.display = 'none';
+      document.getElementById('portalPage').innerHTML = '';
+      document.getElementById('passwordSection').style.display = 'none';
+      document.getElementById('homeContent').style.display = 'block';
+      document.getElementById('homePage').style.display = 'block';
+      currentPortal = '';
+    }
+
+    function showLoading() {
+      document.getElementById('loadingOverlay').style.display = 'flex';
+    }
+
+    function hideLoading() {
+      document.getElementById('loadingOverlay').style.display = 'none';
+    }
+
+    // Dashboard Functions
+    function initializeDashboards() {
+      loadTanksDashboard();
+      loadAnalysisDashboard();
+      
+      tanksRefreshInterval = setInterval(function() {
+        loadTanksDashboard();
+      }, 180000);
+      
+      analysisRefreshInterval = setInterval(function() {
+        loadAnalysisDashboard();
+      }, 180000);
+    }
+
+    function refreshTanksDashboard() {
+      const btn = event.target.closest('.btn-refresh');
+      if (btn) btn.classList.add('rotating');
+      
+      loadTanksDashboard(function() {
+        if (btn) btn.classList.remove('rotating');
+      });
+    }
+
+    function refreshAnalysisDashboard() {
+      const btn = event.target.closest('.btn-refresh');
+      if (btn) btn.classList.add('rotating');
+      
+      loadAnalysisDashboard(function() {
+        if (btn) btn.classList.remove('rotating');
+      });
+    }
+
+    function loadTanksDashboard(callback) {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          renderTanksDashboard(data);
+          if (callback) callback();
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error loading tanks dashboard:', error);
+          const container = document.getElementById('tanksDashboardCards');
+          if (container) {
+            container.innerHTML = '<div class="dashboard-loading"><i class="fas fa-exclamation-circle"></i><span>خطأ في تحميل البيانات</span></div>';
+          }
+          if (callback) callback();
+        })
+        .getTodayTanksDashboardData();
+    }
+
+    function loadAnalysisDashboard(callback) {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          renderAnalysisDashboard(data);
+          if (callback) callback();
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error loading analysis dashboard:', error);
+          const container = document.getElementById('analysisDashboardCards');
+          if (container) {
+            container.innerHTML = '<div class="dashboard-loading"><i class="fas fa-exclamation-circle"></i><span>خطأ في تحميل البيانات</span></div>';
+          }
+          if (callback) callback();
+        })
+        .getTodayAnalysisDashboardData();
+    }
+
+    function renderTanksDashboard(data) {
+      const container = document.getElementById('tanksDashboardCards');
+      if (!container) return;
+      
+      var html = '';
+      
+      html += '<div class="dashboard-card clickable" onclick="navigateToTanksReport()">';
+      html += '<div class="dashboard-card-icon blue"><i class="fas fa-fill-drip"></i></div>';
+      html += '<div class="dashboard-card-value">' + data.totalCount + '</div>';
+      html += '<div class="dashboard-card-label">إجمالي التانكات</div>';
+      html += '</div>';
+      
+      html += '<div class="dashboard-card clickable" onclick="navigateToSerial(' + data.startSerial + ')">';
+      html += '<div class="dashboard-card-icon green"><i class="fas fa-play"></i></div>';
+      html += '<div class="dashboard-card-value">' + data.startSerial + '</div>';
+      html += '<div class="dashboard-card-label">رقم البداية</div>';
+      html += '</div>';
+      
+      html += '<div class="dashboard-card clickable" onclick="navigateToSerial(' + data.endSerial + ')">';
+      html += '<div class="dashboard-card-icon yellow"><i class="fas fa-stop"></i></div>';
+      html += '<div class="dashboard-card-value">' + data.endSerial + '</div>';
+      html += '<div class="dashboard-card-label">رقم النهاية</div>';
+      html += '</div>';
+      
+      html += '<div class="dashboard-card clickable" onclick="navigateToTankConcentration(\'highest\', ' + data.highestSerial + ')">';
+      html += '<div class="dashboard-card-icon purple"><i class="fas fa-arrow-up"></i></div>';
+      html += '<div class="dashboard-card-value">' + data.highest + '%</div>';
+      html += '<div class="dashboard-card-label">أعلى تركيز</div>';
+      if (data.highestSerial > 0) {
+        html += '<div class="dashboard-card-sublabel">عينة رقم ' + data.highestSerial + '</div>';
+      }
+      html += '</div>';
+      
+      html += '<div class="dashboard-card clickable" onclick="navigateToTankConcentration(\'lowest\', ' + data.lowestSerial + ')">';
+      html += '<div class="dashboard-card-icon red"><i class="fas fa-arrow-down"></i></div>';
+      html += '<div class="dashboard-card-value">' + data.lowest + '%</div>';
+      html += '<div class="dashboard-card-label">أقل تركيز</div>';
+      if (data.lowestSerial > 0) {
+        html += '<div class="dashboard-card-sublabel">عينة رقم ' + data.lowestSerial + '</div>';
+      }
+      html += '</div>';
+      
+      container.innerHTML = html;
+    }
+
+    function renderAnalysisDashboard(data) {
+      const container = document.getElementById('analysisDashboardCards');
+      if (!container) return;
+      
+      var html = '';
+      
+      html += '<div class="dashboard-card clickable" onclick="navigateToAnalysisReport(\'device\')">';
+      html += '<div class="dashboard-card-icon blue"><i class="fas fa-mobile-screen-button"></i></div>';
+      html += '<div class="dashboard-card-value">' + data.deviceTotal + '</div>';
+      html += '<div class="dashboard-card-label">تحليل بالجهاز</div>';
+      html += '<div class="dashboard-card-subinfo">';
+      html += '<div class="dashboard-card-subinfo-item"><span>منتجات:</span><strong>' + data.deviceProducts + '</strong></div>';
+      html += '<div class="dashboard-card-subinfo-item"><span>تانكات:</span><strong>' + data.deviceTanks + '</strong></div>';
+      html += '</div></div>';
+      
+      html += '<div class="dashboard-card clickable" onclick="navigateToAnalysisReport(\'lab\')">';
+      html += '<div class="dashboard-card-icon green"><i class="fas fa-flask-vial"></i></div>';
+      html += '<div class="dashboard-card-value">' + data.labTotal + '</div>';
+      html += '<div class="dashboard-card-label">تحليل معملي</div>';
+      html += '<div class="dashboard-card-subinfo">';
+      html += '<div class="dashboard-card-subinfo-item"><span>منتجات:</span><strong>' + data.labProducts + '</strong></div>';
+      html += '<div class="dashboard-card-subinfo-item"><span>تانكات:</span><strong>' + data.labTanks + '</strong></div>';
+      html += '</div></div>';
+      
+      html += '<div class="dashboard-card clickable" onclick="navigateToAnalysisConcentration(\'highest\', \'' + data.highestId + '\')">';
+      html += '<div class="dashboard-card-icon purple"><i class="fas fa-arrow-up"></i></div>';
+      html += '<div class="dashboard-card-value">' + data.highest + '%</div>';
+      html += '<div class="dashboard-card-label">أعلى تركيز</div>';
+      if (data.highestLabel) {
+        html += '<div class="dashboard-card-sublabel">' + data.highestLabel + '</div>';
+      }
+      html += '</div>';
+      
+      html += '<div class="dashboard-card clickable" onclick="navigateToAnalysisConcentration(\'lowest\', \'' + data.lowestId + '\')">';
+      html += '<div class="dashboard-card-icon red"><i class="fas fa-arrow-down"></i></div>';
+      html += '<div class="dashboard-card-value">' + data.lowest + '%</div>';
+      html += '<div class="dashboard-card-label">أقل تركيز</div>';
+      if (data.lowestLabel) {
+        html += '<div class="dashboard-card-sublabel">' + data.lowestLabel + '</div>';
+      }
+      html += '</div>';
+      
+      container.innerHTML = html;
+    }
+
+    function navigateToTanksReport() {
+      showPortal('C');
+      setTimeout(function() {
+        var reportBtn = document.querySelector('[onclick*="selectReportTypeC(\'tank\')"]');
+        if (reportBtn) {
+          reportBtn.click();
+        }
+      }, 800);
+    }
+
+    function navigateToSerial(serial) {
+      if (serial === 0) return;
+      
+      showPortal('C');
+      setTimeout(function() {
+        var reportBtn = document.querySelector('[onclick*="selectReportTypeC(\'tank\')"]');
+        if (reportBtn) {
+          reportBtn.click();
+          setTimeout(function() {
+            var searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+              searchInput.value = serial;
+              if (typeof filterTable === 'function') {
+                filterTable();
+              }
+            }
+          }, 1000);
+        }
+      }, 800);
+    }
+
+    function navigateToTankConcentration(type, serial) {
+      if (serial === 0) return;
+      navigateToSerial(serial);
+    }
+
+    function navigateToAnalysisReport(method) {
+      showPortal('C');
+      setTimeout(function() {
+        var reportBtn = document.querySelector('[onclick*="selectReportTypeC(\'analysis\')"]');
+        if (reportBtn) {
+          reportBtn.click();
+          setTimeout(function() {
+            var searchTerm = method === 'device' ? 'الجهاز' : 'معملي';
+            var searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+              searchInput.value = searchTerm;
+              if (typeof filterTable === 'function') {
+                filterTable();
+              }
+            }
+          }, 1000);
+        }
+      }, 800);
+    }
+
+    function navigateToAnalysisConcentration(type, id) {
+      if (!id || id === '0') return;
+      
+      showPortal('C');
+      setTimeout(function() {
+        var reportBtn = document.querySelector('[onclick*="selectReportTypeC(\'analysis\')"]');
+        if (reportBtn) {
+          reportBtn.click();
+          setTimeout(function() {
+            var searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+              searchInput.value = id;
+              if (typeof filterTable === 'function') {
+                filterTable();
+              }
+            }
+          }, 1000);
+        }
+      }, 800);
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeDashboards();
+      
+      document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && document.getElementById('passwordSection').style.display === 'block') {
+          verifyPassword();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
