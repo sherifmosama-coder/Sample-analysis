@@ -70,6 +70,15 @@
                 <div class="btn-title">تقارير</div>
               </div>
             </button>
+            
+            <button class="main-btn btn-blue btn-small" onclick="promptPassword('TDS')">
+              <div class="btn-icon" style="background: linear-gradient(135deg, #7c3aed, #5b21b6);">
+                <i class="fas fa-file-contract"></i>
+              </div>
+              <div class="btn-content">
+                <div class="btn-title">شهادة TDS</div>
+              </div>
+            </button>
           </div>
           
           <!-- Tanks Dashboard -->
@@ -156,7 +165,7 @@
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay" style="display: none;">
       <div class="spinner"></div>
-      <p>جاري التحميل...</p>
+      <p id="loadingText">جاري التحميل...</p>
     </div>
   </div>
 
@@ -171,7 +180,8 @@
       currentPortal = portal;
       const portalNames = {
         'A': 'ارسال تانك',
-        'B': 'تحليل عينة'
+        'B': 'تحليل عينة',
+        'TDS': 'إصدار شهادة TDS'
       };
       
       document.getElementById('passwordPortalName').textContent = 'الرجاء إدخال رمز المرور لـ ' + portalNames[portal];
@@ -228,6 +238,9 @@
       } else if (portal === 'C') {
         portalPage.innerHTML = document.getElementById('portalCTemplate').innerHTML;
         initPortalC();
+      } else if (portal === 'TDS') {
+        portalPage.innerHTML = document.getElementById('portalTDSTemplate').innerHTML;
+        initPortalTDS();
       }
     }
 
