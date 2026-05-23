@@ -27,6 +27,8 @@ function checkPassword(portal, password) {
       correctPassword = systemSheet.getRange('A2').getValue().toString();
     } else if (portal === 'B') {
       correctPassword = systemSheet.getRange('B2').getValue().toString();
+    } else if (portal === 'TDS') {
+      correctPassword = systemSheet.getRange('C2').getValue().toString();
     }
     
     return password === correctPassword;
@@ -906,4 +908,186 @@ function getEmptyAnalysisDashboard() {
     highestLabel: '',
     lowestLabel: ''
   };
+}
+
+// --- TDS GENERATOR FUNCTIONS ---
+
+// Get Product Options from TDS_Settings
+function getTDSProducts() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('TDS_Settings');
+    if (!sheet) return [];
+    
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return [];
+    
+    // Get Product Names from Column A
+    const products = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    return products.map(function(row) { return row[0]; }).filter(function(val) { return val !== ''; });
+  } catch (error) {
+    throw new Error('Error loading TDS products: ' + error.message);
+  }
+}
+
+// Get Fixed Settings for a specific product (Safe Version)
+function getTDSDetails(productName) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('TDS_Settings');
+    const lastRow = sheet.getLastRow();
+    
+    // Get all data A2:K
+    const data = sheet.getRange(2, 1, lastRow - 1, 11).getValues(); 
+    
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] == productName) {
+        // Convert EVERYTHING to String to avoid "Complex Object" errors
+        return {
+          product:    String(data[i][0] || ''),
+          standard:   String(data[i][1] || ''),
+          appearance: String(data[i][2] || ''),
+          odor:       String(data[i][3] || ''),
+          density:    String(data[i][4] || ''),
+          alcohol:    String(data[i][5] || ''),
+          solids:     String(data[i][6] || ''),
+          micro:      String(data[i][7] || ''),
+          shelfLife:  String(data[i][8] || ''),
+          storage:    String(data[i][9] || ''),
+          logoUrl:    String(data[i][10] || '')
+        };
+      }
+    }
+    throw new Error('Product settings not found');
+  } catch (error) {
+    throw new Error('Error fetching TDS details: ' + error.message);
+  }
+}
+
+// --- TDS GENERATION & LOGGING ---
+
+function generateAndLogTDS(data) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let logSheet = ss.getSheetByName('TDS_Logs');
+    if (!logSheet) throw new Error('Sheet "TDS_Logs" not found');
+    
+    // 1. Generate Unique ID
+    const year = new Date().getFullYear();
+    const lastRow = Math.max(logSheet.getLastRow(), 1); 
+    const sequence = lastRow; // Starts at 1 if sheet is empty
+    const padSequence = ('000' + sequence).slice(-3);
+    const uniqueID = 'TDS-' + year + '-' + padSequence;
+    
+    // 2. Fetch Fixed Settings for the PDF
+    const settings = getTDSDetails(data.productName);
+    
+    // 3. Prepare Data for Template
+    data.documentId = uniqueID; // Add ID to data object
+    
+    const template = HtmlService.createTemplateFromFile('TDSTEMPLATE');
+    template.data = data;
+    template.settings = settings;
+    
+    // 4. Generate PDF Blob
+    const htmlOutput = template.evaluate();
+    const pdfBlob = htmlOutput.getAs('application/pdf');
+    pdfBlob.setName(uniqueID + '_' + data.productName + '.pdf');
+    
+    // 5. Save to Google Drive (Folder: "TDS Certificates")
+    const folderName = "TDS Certificates";
+    const folders = DriveApp.getFoldersByName(folderName);
+    let folder;
+    if (folders.hasNext()) {
+      folder = folders.next();
+    } else {
+      folder = DriveApp.createFolder(folderName);
+    }
+    
+    const file = folder.createFile(pdfBlob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const fileUrl = file.getUrl();
+    
+    // 6. Save Log to Spreadsheet (Col K = URL)
+    const row = [
+      uniqueID,                  // A: ID
+      new Date(),                // B: Timestamp
+      data.batchNumber,          // C: Batch
+      data.productName,          // D: Product
+      data.prodDate,             // E: Prod
+      data.expDate,              // F: Exp
+      data.acidity,              // G: Acidity
+      data.oxidation,            // H: Oxidation
+      data.ph,                   // I: pH
+      Session.getActiveUser().getEmail(), // J: User
+      fileUrl                    // K: URL
+    ];
+    
+    logSheet.appendRow(row);
+    
+    return { success: true, documentId: uniqueID, url: fileUrl };
+    
+  } catch (error) {
+    throw new Error('Error generating TDS: ' + error.message);
+  }
+}
+
+// --- GENERIC TDS GENERATION ---
+function generateAndLogGenericTDS(productName) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let logSheet = ss.getSheetByName('TDS_Logs');
+    
+    // 1. Generate ID (use "SPEC" prefix instead of "TDS")
+    const year = new Date().getFullYear();
+    const lastRow = Math.max(logSheet.getLastRow(), 1); 
+    const uniqueID = 'SPEC-' + year + '-' + ('000' + lastRow).slice(-3);
+    
+    // 2. Fetch Fixed Settings
+    const settings = getTDSDetails(productName);
+    
+    // 3. Prepare Data (Flag isGeneric = true)
+    const data = {
+      productName: productName,
+      documentId: uniqueID,
+      isGeneric: true  // <--- This controls the template
+    };
+    
+    // 4. Generate PDF
+    const template = HtmlService.createTemplateFromFile('TDSTEMPLATE');
+    template.data = data;
+    template.settings = settings;
+    
+    const htmlOutput = template.evaluate();
+    const pdfBlob = htmlOutput.getAs('application/pdf');
+    pdfBlob.setName(uniqueID + '_' + productName + '_Spec.pdf');
+    
+    // 5. Save to Drive
+    const folderName = "TDS Certificates";
+    const folders = DriveApp.getFoldersByName(folderName);
+    const folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+    
+    const file = folder.createFile(pdfBlob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const fileUrl = file.getUrl();
+    
+    // 6. Save Log (Simple log for generic specs)
+    const row = [
+      uniqueID,
+      new Date(),
+      'GENERIC',     // Batch
+      productName,
+      '-',           // Prod Date
+      '-',           // Exp Date
+      '-', '-', '-', // Results
+      Session.getActiveUser().getEmail(),
+      fileUrl
+    ];
+    logSheet.appendRow(row);
+    
+    return { success: true, documentId: uniqueID, url: fileUrl };
+    
+  } catch (error) {
+    throw new Error('Error generating Generic Spec: ' + error.message);
+  }
 }
