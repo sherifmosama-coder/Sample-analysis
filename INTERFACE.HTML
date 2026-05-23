@@ -1452,4 +1452,262 @@
     
     window.print();
   }
+  // --- TDS Portal Scripts ---
+
+var tdsDetails = {};
+
+function initPortalTDS() {
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(products) {
+      hideLoading();
+      const select = document.getElementById('tdsProductSelect');
+      select.innerHTML = '<option value="">-- اختر المنتج --</option>';
+      products.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p;
+        opt.textContent = p;
+        select.appendChild(opt);
+      });
+    })
+    .withFailureHandler(error => { hideLoading(); alert(error.message); })
+    .getTDSProducts();
+    
+  // Set today's date
+  document.getElementById('tdsDate').valueAsDate = new Date();
+}
+
+function loadTDSDetails() {
+  const product = document.getElementById('tdsProductSelect').value;
+  if(!product) return;
+  
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(details) {
+      hideLoading();
+      tdsDetails = details;
+      
+      // Auto-calculate Expiry if Date is set
+      calculateExpiry();
+    })
+    .withFailureHandler(error => { hideLoading(); alert(error.message); })
+    .getTDSDetails(product);
+}
+
+function calculateExpiry() {
+  const prodDateStr = document.getElementById('tdsDate').value;
+  if (!prodDateStr || !tdsDetails.shelfLife) return;
+  
+  // Extract number from "24 Months" string
+  const months = parseInt(tdsDetails.shelfLife);
+  if(isNaN(months)) return;
+  
+  const prodDate = new Date(prodDateStr);
+  const expDate = new Date(prodDate);
+  expDate.setMonth(expDate.getMonth() + months);
+  // Subtract 1 day for proper expiry
+  expDate.setDate(expDate.getDate() - 1);
+  
+  document.getElementById('tdsExpDate').valueAsDate = expDate;
+}
+
+function generateGenericSpec() {
+  // 1. Check if product is selected
+  const product = document.getElementById('tdsProductSelect').value;
+  if (!product) {
+    alert("Please select a product first.");
+    return;
+  }
+
+  // 2. Confirm
+  if(!confirm("Generate a Generic Technical Specification (no batch results)?")) return;
+
+  // 3. Show Loading
+  showLoading();
+  var loadingEl = document.getElementById('loadingText');
+  if (loadingEl) loadingEl.textContent = "Generating Generic Spec...";
+
+  // 4. Call Server
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (loadingEl) loadingEl.textContent = "جاري التحميل...";
+
+      // Show Success (Reuse the existing container)
+      const container = document.getElementById('tdsFormCard');
+      container.innerHTML = `
+        <div class="success-msg" style="flex-direction:column; gap:15px; text-align:center;">
+          <i class="fas fa-file-alt" style="font-size:3em; color: #64748b;"></i>
+          <div>
+            <h3>Generic Specification Generated!</h3>
+            <div style="background:white; color:#333; padding:5px 10px; border-radius:4px; margin:10px auto; display:inline-block; font-family:monospace;">
+              ${result.documentId}
+            </div>
+          </div>
+          <a href="${result.url}" target="_blank" class="btn btn-primary" style="text-decoration:none; color:white;">
+            <i class="fas fa-file-pdf"></i> Open PDF
+          </a>
+          <button onclick="resetTDSForm()" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back
+          </button>
+        </div>
+      `;
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      if (loadingEl) loadingEl.textContent = "جاري التحميل...";
+      alert("Error: " + error.message);
+    })
+    .generateAndLogGenericTDS(product);
+}
+
+function generateTDS(event) {
+  event.preventDefault();
+  
+  // 1. Confirm
+  if(!confirm("Are you sure you want to generate and save this certificate?")) return;
+
+  // 2. Gather Data
+  const data = {
+    productName: tdsDetails.product,
+    batchNumber: document.getElementById('tdsBatch').value,
+    prodDate: document.getElementById('tdsDate').value,
+    expDate: document.getElementById('tdsExpDate').value,
+    acidity: document.getElementById('tdsAcidity').value,
+    oxidation: document.getElementById('tdsOxidation').value,
+    ph: document.getElementById('tdspH').value
+  };
+  
+  // 3. Show Loading (Safely)
+  showLoading();
+  var loadingEl = document.getElementById('loadingText');
+  if (loadingEl) {
+    loadingEl.textContent = "Generating PDF & Saving to Drive...";
+  }
+  
+  // 4. Call Server
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      
+      // Reset loading text
+      if (loadingEl) loadingEl.textContent = "جاري التحميل...";
+
+      // Show Success Message with Link
+      const container = document.getElementById('tdsFormCard');
+      container.innerHTML = `
+        <div class="success-msg" style="flex-direction:column; gap:15px; text-align:center;">
+          <i class="fas fa-check-circle" style="font-size:3em;"></i>
+          <div>
+            <h3>Certificate Generated Successfully!</h3>
+            <div style="background:white; color:#333; padding:5px 10px; border-radius:4px; margin:10px auto; display:inline-block; font-family:monospace;">
+              ${result.documentId}
+            </div>
+          </div>
+          <a href="${result.url}" target="_blank" class="btn btn-primary" style="text-decoration:none; color:white;">
+            <i class="fas fa-file-pdf"></i> Open PDF Certificate
+          </a>
+          <button onclick="resetTDSForm()" class="btn btn-secondary">
+            <i class="fas fa-plus"></i> Create Another
+          </button>
+        </div>
+      `;
+      
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      if (loadingEl) loadingEl.textContent = "جاري التحميل...";
+      alert("Error: " + error.message);
+    })
+    .generateAndLogTDS(data);
+}
+
+function resetTDSForm() {
+  // Reload the portal to reset state
+  showPortal('TDS');
+}
+
+function printTDS() {
+  window.print();
+}
+
+function resetTDS() {
+  document.getElementById('tdsCertificate').style.display = 'none';
+  document.getElementById('tdsFormCard').style.display = 'block';
+  document.getElementById('tdsForm').reset();
+}
 </script>
+
+<template id="portalTDSTemplate">
+  <div class="portal-container">
+    <div class="portal-header">
+      <div class="portal-title">
+        <i class="fas fa-file-contract"></i>
+        <span>إصدار شهادة تحليل (TDS)</span>
+      </div>
+      <button class="btn-back" onclick="goHome()">
+        <i class="fas fa-arrow-right"></i>
+        <span>العودة</span>
+      </button>
+    </div>
+    
+    <div class="portal-body">
+      
+      <div id="tdsFormCard">
+        <form id="tdsForm" onsubmit="generateTDS(event)">
+          <div class="form-group">
+            <label class="form-label"><i class="fas fa-flask"></i> المنتج</label>
+            <select id="tdsProductSelect" class="form-control" onchange="loadTDSDetails()" required></select>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label"><i class="fas fa-barcode"></i> رقم التشغيلة (Batch No)</label>
+            <input type="text" id="tdsBatch" class="form-control" required placeholder="e.g., 2026-001">
+          </div>
+          
+          <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+            <div>
+              <label class="form-label">تاريخ الإنتاج</label>
+              <input type="date" id="tdsDate" class="form-control" required onchange="calculateExpiry()">
+            </div>
+            <div>
+              <label class="form-label">تاريخ الانتهاء</label>
+              <input type="date" id="tdsExpDate" class="form-control" required>
+            </div>
+          </div>
+          
+          <div class="info-card">
+            <div class="info-card-header"><i class="fas fa-vial"></i> نتائج التحليل</div>
+            <div class="info-card-body">
+              <div class="form-group">
+                <label class="form-label">Total Acidity %</label>
+                <input type="number" id="tdsAcidity" class="form-control" step="0.01" required placeholder="e.g., 5.10">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Oxidation Value</label>
+                <input type="number" id="tdsOxidation" class="form-control" step="1" required placeholder="e.g., 550">
+              </div>
+              <div class="form-group">
+                <label class="form-label">pH Value</label>
+                <input type="number" id="tdspH" class="form-control" step="0.01" required placeholder="e.g., 2.60">
+              </div>
+            </div>
+          </div>
+          
+          <div class="button-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button type="submit" class="btn btn-primary" style="flex: 1;">
+              <i class="fas fa-file-pdf"></i>
+              <span>إصدار شهادة (Batch)</span>
+            </button>
+            
+            <button type="button" class="btn btn-secondary" style="flex: 1; background-color: #64748b;" onclick="generateGenericSpec()">
+              <i class="fas fa-file-alt"></i>
+              <span>مواصفة فنية (Generic)</span>
+            </button>
+          </div>
+        </form>
+      </div>
+      
+    </div>
+  </div>
+</template>
