@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    @page { size: A4; margin: 0; }
+    body {
+      width: 210mm; height: 297mm; margin: 0 auto;
+      padding-top: 5cm; padding-bottom: 4cm; padding-left: 2cm; padding-right: 2cm;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      color: #333; background: white; font-size: 10pt;
+      display: flex; flex-direction: column;
+    }
+    .content-wrapper { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+    
+    /* Header */
+    .header { display: flex; align-items: center; gap: 15px; margin-bottom: 5px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+    .main-title { font-size: 20pt; font-weight: 800; color: #1e40af; text-transform: uppercase; margin: 0; line-height: 1; }
+    .doc-id-chip { font-family: monospace; font-size: 9pt; font-weight: 700; color: #1e40af; background: #eff6ff; padding: 4px 10px; border-radius: 20px; border: 1px solid #dbeafe; white-space: nowrap; }
+
+    /* Sections */
+    .section-title { font-size: 11pt; font-weight: 700; color: #1e40af; text-transform: uppercase; margin-bottom: 6px; padding-left: 4px; border-left: 4px solid #1e40af; line-height: 1; }
+    .content-text { line-height: 1.3; margin-bottom: 8px; text-align: justify; color: #475569; }
+
+    /* Grids */
+    .meta-grid { display: table; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 5px; }
+    .meta-row { display: table-row; }
+    .meta-cell { display: table-cell; width: 25%; padding: 4px 8px; vertical-align: middle; }
+    .label { display: block; font-size: 7.5pt; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 2px; }
+    .value { display: block; font-size: 10pt; font-weight: 600; color: #0f172a; }
+
+    /* Tables */
+    .table-container { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 5px; }
+    table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+    th { background-color: #f1f5f9; color: #1e40af; padding: 6px 12px; text-align: left; font-weight: 700; border-bottom: 1px solid #cbd5e1; }
+    td { padding: 6px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+    tr:last-child td { border-bottom: none; }
+    .result-bold { font-weight: 700; color: #0f172a; }
+
+    /* Footer */
+    .footer-section { margin-top: auto; padding-top: 5px; }
+    .disclaimer { font-size: 7pt; color: #94a3b8; text-align: justify; line-height: 1.2; margin-bottom: 15px; background: #fcfcfc; padding: 6px; border-radius: 6px; border: 1px dashed #e2e8f0; }
+    .signatures { display: table; width: 100%; margin-bottom: 10px; }
+    .sig-box { display: table-cell; width: 50%; text-align: center; vertical-align: bottom; padding: 0 20px; }
+    .sig-line { border-top: 2px solid #cbd5e1; padding-top: 6px; font-weight: 700; color: #334155; font-size: 9pt; }
+    .bottom-bar { border-top: 1px solid #e2e8f0; padding-top: 5px; font-size: 8pt; color: #cbd5e1; display: flex; justify-content: space-between; font-weight: 500; }
+  </style>
+</head>
+<body>
+
+  <div class="content-wrapper">
+  
+    <div class="header">
+      <h1 class="main-title"><?= data.isGeneric ? 'Product Specification' : 'Technical Data Sheet' ?></h1>
+      <div class="doc-id-chip"><?= data.documentId ?></div>
+    </div>
+
+    <div>
+      <div class="section-title">1. Product Description</div>
+      <div class="content-text">
+        White Natural Vinegar produced through the fermentation of sugar cane molasses, followed by filtration and dilution.
+      </div>
+      
+      <? if (!data.isGeneric) { ?>
+      <div class="meta-grid">
+        <div class="meta-row">
+          <div class="meta-cell">
+            <span class="label">Product Name</span>
+            <span class="value"><?= data.productName ?></span>
+          </div>
+          <div class="meta-cell">
+            <span class="label">Batch Number</span>
+            <span class="value"><?= data.batchNumber ?></span>
+          </div>
+          <div class="meta-cell">
+            <span class="label">Production Date</span>
+            <span class="value"><?= data.prodDate ?></span>
+          </div>
+          <div class="meta-cell">
+            <span class="label">Expiry Date</span>
+            <span class="value"><?= data.expDate ?></span>
+          </div>
+        </div>
+      </div>
+      <? } ?>
+      </div>
+
+    <div>
+      <div class="section-title">2. Compliance</div>
+      <div class="content-text">
+        For this product to conform with the <strong>Egyptian Standard ES 383/2023 (Natural Vinegar) , it must comply with the </strong> PHYSICO-CHEMICAL SPECIFICATIONS <strong>stated below.</strong>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">3. Physico-Chemical Specifications</div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th width="40%">Parameter</th>
+              <th width="<?= data.isGeneric ? '60%' : '30%' ?>">Specification</th>
+              <? if (!data.isGeneric) { ?> <th width="30%">Result</th> <? } ?>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Total Acidity (as Acetic Acid)</td>
+              <td>5.0% - 5.6% (w/v)</td>
+              <? if (!data.isGeneric) { ?> <td class="result-bold"><?= data.acidity ?>%</td> <? } ?>
+            </tr>
+            <tr>
+              <td>pH Value</td>
+              <td>2.35 – 2.45</td>
+              <? if (!data.isGeneric) { ?> <td class="result-bold"><?= data.ph ?></td> <? } ?>
+            </tr>
+            <tr>
+              <td>Oxidation Value</td>
+              <td>Min. 500</td>
+              <? if (!data.isGeneric) { ?> <td class="result-bold"><?= data.oxidation ?></td> <? } ?>
+            </tr>
+            <tr>
+              <td>Appearance</td>
+              <td><?= settings.appearance ?></td>
+              <? if (!data.isGeneric) { ?> <td>Complies</td> <? } ?>
+            </tr>
+            <tr>
+              <td>Odor</td>
+              <td><?= settings.odor ?></td>
+              <? if (!data.isGeneric) { ?> <td>Complies</td> <? } ?>
+            </tr>
+            <tr>
+              <td>Density (20°C)</td>
+              <td><?= settings.density ?></td>
+              <? if (!data.isGeneric) { ?> <td>Complies</td> <? } ?>
+            </tr>
+            <tr>
+              <td>Residual Alcohol</td>
+              <td><?= settings.alcohol ?></td>
+              <? if (!data.isGeneric) { ?> <td>Complies</td> <? } ?>
+            </tr>
+            <tr>
+              <td>Soluble Solids</td>
+              <td><?= settings.solids ?></td>
+              <? if (!data.isGeneric) { ?> <td>Complies</td> <? } ?>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">4. Microbiological & Storage</div>
+      <div class="meta-grid">
+        <div class="meta-row">
+          <div class="meta-cell" style="width:50%; border-right:1px solid #eee;">
+             <span class="label">Microbiological</span>
+             <span class="value" style="font-weight:normal;"><?= settings.micro ?></span>
+          </div>
+          <div class="meta-cell" style="width:50%; padding-left:15px;">
+             <span class="label">Storage</span>
+             <span class="value" style="font-weight:normal;"><?= settings.storage ?></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="footer-section">
+
+      <div class="signatures">
+        <div class="sig-box">
+          <div class="sig-line">Quality Control</div>
+        </div>
+        <div class="sig-box">
+          <div class="sig-line">Factory Manager</div>
+        </div>
+      </div>
+
+      <div class="disclaimer">
+        <strong>Disclaimer:</strong> The information provided in this <?= data.isGeneric ? 'Specification' : 'Technical Data Sheet' ?> is based on our current knowledge and experience. 
+        It does not relieve the user from carrying out their own precautions and tests. This document is electronically generated and remains valid without a signature.
+      </div>
+      <div class="bottom-bar">
+        <span>Form Ref: QA-TDS-001</span>
+        <span>Altawoos for packing and trading food Goods</span>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>
