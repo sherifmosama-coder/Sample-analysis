@@ -1317,14 +1317,44 @@ function addBreakSession(data) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Production_Logs');
     const sessionId = 'BRK-' + new Date().getTime();
-    const duration = calculateDuration(data.startTime, data.endTime);
-
+    const duration = data.endTime ? calculateDuration(data.startTime, data.endTime) : '';
+    const status = data.endTime ? 'Completed' : 'Active';
     sheet.appendRow([
       sessionId, new Date(), data.user, data.date, 'وقت الراحة',
-      data.startTime, data.endTime, duration, '', '', data.notes || '', '', 'Completed'
+      data.startTime, data.endTime || '', duration, '', '', data.notes || '', '', status
     ]);
-
     syncWasteTimes(data.date);
+    return { success: true };
+  } catch (e) { throw new Error(e.message);
+  }
+}
+
+function endBreakSession(data) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Production_Logs');
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) throw new Error('لا توجد بيانات');
+    const table = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+    let rowIndex = -1;
+    for (let i = 0; i < table.length; i++) {
+      if (table[i][0] === data.sessionId) { rowIndex = i + 2; break; }
+    }
+    if (rowIndex === -1) throw new Error('لم يتم العثور على الجلسة');
+    
+    const startTimeStr = table[rowIndex - 2][5];
+    const duration = calculateDuration(startTimeStr, data.endTime);
+    
+    sheet.getRange(rowIndex, 7).setValue(data.endTime);
+    sheet.getRange(rowIndex, 8).setValue(duration);
+    sheet.getRange(rowIndex, 13).setValue('Completed');
+    
+    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+    addCellNote(sheet, rowIndex, 13, `[${timestamp}] Break ended by ${data.user}.`);
+    
+    let dateStr = table[rowIndex - 2][3] instanceof Date ? Utilities.formatDate(table[rowIndex - 2][3], Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(table[rowIndex - 2][3]);
+    syncWasteTimes(dateStr);
+    
     return { success: true };
   } catch (e) { throw new Error(e.message); }
 }
