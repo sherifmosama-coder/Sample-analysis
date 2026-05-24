@@ -1662,6 +1662,45 @@ body {
   }
 }
 
+/* Production Portal Styles */
+.prod-card { background: var(--white); border: 2px solid var(--gray); border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: transform 0.3s ease; }
+.prod-card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--gray); padding-bottom: 10px; margin-bottom: 15px; }
+.prod-title { font-size: 1.2em; font-weight: 700; color: var(--dark-blue); }
+.prod-status { padding: 4px 10px; border-radius: 20px; font-size: 0.85em; font-weight: 600; }
+.status-active { background: #dbeafe; color: #1e40af; }
+.status-completed { background: #d1fae5; color: #065f46; }
+.prod-detail { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95em; }
+.prod-detail span:first-child { color: var(--text-light); }
+.prod-detail span:last-child { font-weight: 600; color: var(--text-dark); text-align: left; }
+.edit-history-box { margin-top: 15px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; font-size: 0.85em; display: none; color: #475569; white-space: pre-wrap; word-break: break-word; }
+
+/* Grid and Collapsible Styles */
+.sessions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-bottom: 25px; }
+
+/* Time Chips & Card Themes */
+.time-chip { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 20px; font-size: 0.85em; font-weight: 700; margin: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.time-chip i { margin-left: 6px; }
+.chip-start { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+.chip-end { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+.chip-dur { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+
+.card-waste { border-color: #fca5a5 !important; background: #fef2f2 !important; }
+.card-waste .prod-title { color: #b91c1c !important; }
+.card-waste .prod-card-header { border-bottom-color: #fecaca !important; }
+
+.card-break { border-color: #fcd34d !important; background: #fffbeb !important; }
+.card-break .prod-title { color: #b45309 !important; }
+.card-break .prod-card-header { border-bottom-color: #fde68a !important; }
+.sessions-section-title { font-size: 1.1em; color: var(--text-light); margin-bottom: 15px; margin-top: 25px; border-bottom: 2px solid var(--gray); padding-bottom: 5px; }
+.prod-card { display: flex; flex-direction: column; background: var(--white); border: 2px solid var(--gray); border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: transform 0.3s ease; }
+.prod-card-body { display: flex; flex-direction: column; flex: 1; }
+.prod-card-body.collapsed { display: none; }
+.card-toggle-btn { background: none; border: none; width: 100%; text-align: center; color: var(--blue); padding: 8px 0 0 0; cursor: pointer; font-size: 0.9em; font-weight: 600; margin-top: auto; border-top: 1px dashed var(--gray); }
+.card-toggle-btn:hover { color: var(--dark-blue); }
+
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.modal-content { background: var(--white); padding: 25px; border-radius: 12px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .portal-c-wide {
