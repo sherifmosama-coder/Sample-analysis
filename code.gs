@@ -165,56 +165,58 @@ function searchSheetForTank(sheet, serialNumber) {
   return null;
 }
 
-// [UPDATED] Update tank analysis (Checks 2026 then 2025)
-function updateTankAnalysis(data) {
+// Save Tank Analysis (Concurrent Workflow Upsert)
+function saveTankAnalysis(data) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    
-    // 1. Try updating NEW sheet
-    const newTankSheet = ss.getSheetByName('Tank');
-    if (newTankSheet) {
-      if (tryUpdateSheet(newTankSheet, data)) {
-        return { success: true, message: 'تم تحديث البيانات بنجاح (2026)' };
+    let tankSheet = ss.getSheetByName('Tank');
+    if (!tankSheet) {
+      tankSheet = ss.insertSheet('Tank');
+      const headers = [
+        'Timestamp', 'User Email', 'التاريخ', '', 'نوع الخامة', 'طريقة التحضير',
+        'العدد (A2)', 'العدد (A3)', 'العدد (A4)', 'العدد (A5)',
+        'Old Device', 'Old Prev Dev', 'Serial Number', 'Old v/v%', 'Old Prev v/v%',
+        'نتيجة التحليل المعملي', 'وقت التحليل المعملي', 'صورة التحليل المعملي'
+      ];
+      tankSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      tankSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    }
+
+    const lastRow = tankSheet.getLastRow();
+    let rowIndex = -1;
+
+    if (lastRow >= 2) {
+      const table = tankSheet.getRange(2, 1, lastRow - 1, 18).getValues();
+      for (let i = 0; i < table.length; i++) {
+        if (table[i][12] == data.serialNumber) { // Col M
+          rowIndex = i + 2; break;
+        }
       }
     }
-    
-    // 2. Try updating OLD sheet
-    const oldTankSheet = ss.getSheetByName('Tank_2025');
-    if (oldTankSheet) {
-      if (tryUpdateSheet(oldTankSheet, data)) {
-        return { success: true, message: 'تم تحديث البيانات بنجاح (أرشيف 2025)' };
-      }
+
+    const timestampStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    const labResStr = (data.labResult / 100);
+
+    if (rowIndex > -1) {
+      // UPDATE EXISTING ROW (Started by Portal A)
+      tankSheet.getRange(rowIndex, 16).setValue(labResStr); // Col P
+      tankSheet.getRange(rowIndex, 17).setValue(timestampStr); // Col Q
+      if (data.imageUrl) tankSheet.getRange(rowIndex, 18).setValue(data.imageUrl); // Col R
+    } else {
+      // INSERT NEW ROW (Portal B First)
+      const row = new Array(18).fill('');
+      row[12] = data.serialNumber; // Col M
+      row[15] = labResStr; // Col P
+      row[16] = timestampStr; // Col Q
+      if (data.imageUrl) row[17] = data.imageUrl; // Col R
+      
+      tankSheet.appendRow(row);
     }
-    
-    throw new Error('Serial number not found');
+
+    return { success: true, message: 'تم حفظ نتيجة التحليل بنجاح' };
   } catch (error) {
     throw new Error('Error updating tank: ' + error.message);
   }
-}
-
-// Helper function to perform the update
-function tryUpdateSheet(sheet, data) {
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return false;
-  
-  const serials = sheet.getRange(2, 13, lastRow - 1, 1).getValues();
-  
-  for (let i = 0; i < serials.length; i++) {
-    if (serials[i][0] == data.serialNumber) {
-      const rowNum = i + 2;
-      
-      if (data.analysisMethod === 'device') {
-        sheet.getRange(rowNum, 12).setValue(data.deviceReading);
-        sheet.getRange(rowNum, 15).setValue(data.vvPercent);
-        sheet.getRange(rowNum, 17).setValue(new Date());
-      } else {
-        sheet.getRange(rowNum, 16).setValue(data.labResult / 100);
-        sheet.getRange(rowNum, 18).setValue(new Date());
-      }
-      return true; // Update successful
-    }
-  }
-  return false; // Serial not found in this sheet
 }
 
 // Save product analysis (Portal B - Product path)
@@ -231,23 +233,14 @@ function saveProductAnalysis(data) {
     }
     
     const row = new Array(8).fill('');
-    
     row[0] = new Date();
     row[1] = data.productName;
-    row[2] = data.analysisMethod === 'device' ? 'الجهاز' : 'معملي';
-    
-    if (data.analysisMethod === 'device') {
-      row[3] = data.deviceReading;
-      row[4] = data.vvPercent;
-    } else {
-      row[5] = data.labResult / 100;
-    }
-    
+    row[2] = 'معملي'; // Always Lab
+    row[5] = data.labResult / 100;
     row[6] = data.referenceNumber;
     row[7] = data.imageUrl || '';
     
     analysisSheet.appendRow(row);
-    
     return { success: true, message: 'تم حفظ البيانات بنجاح' };
   } catch (error) {
     throw new Error('Error saving analysis: ' + error.message);
@@ -289,114 +282,144 @@ function deleteImageFromDrive(fileId) {
   }
 }
 
-// Validate serial number
-function validateSerialNumber(serialNumber) {
+// Validate serial number (Concurrent Context-Aware Workflow)
+function validateSerialNumber(serialNumber, portal) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tankSheet = ss.getSheetByName('Tank');
     
-    if (!tankSheet) {
-      return { valid: serialNumber === 1, message: serialNumber === 1 ? '' : 'رقم العينة غير صحيح' };
+    if (!tankSheet || tankSheet.getLastRow() < 2) {
+      if (serialNumber === 1) {
+         return { 
+           valid: true, 
+           message: portal === 'B' ? "يرجي الابلاغ بالنتيجة للتجهيز.. جاهز لإدخال نتيجة التحليل." : "لم يتم التحليل بعد، يرجي مراجعة المعمل قبل الارسال", 
+           type: portal === 'B' ? 'success' : 'warning' 
+         };
+      } else {
+         return { valid: false, message: 'رقم التانك يجب أن يبدأ من 1', type: 'error' };
+      }
     }
     
-    const lastRow = tankSheet.getLastRow();
-    
-    if (lastRow < 2) {
-      return { valid: serialNumber === 1, message: serialNumber === 1 ? '' : 'رقم العينة يجب أن يبدأ من 1' };
+    const data = tankSheet.getRange(2, 1, tankSheet.getLastRow() - 1, 18).getValues();
+    let maxSerial = 0;
+    let existingRow = null;
+
+    for (let i = 0; i < data.length; i++) {
+      let s = data[i][12]; // Col M (index 12)
+      if (s !== '' && !isNaN(s)) {
+        let num = parseInt(s);
+        if (num > maxSerial) maxSerial = num;
+        if (num === serialNumber) existingRow = data[i];
+      }
     }
-    
-    const existingSerials = tankSheet.getRange(2, 13, lastRow - 1, 1).getValues().flat();
-    
-    if (existingSerials.includes(serialNumber)) {
-      return { valid: false, message: 'رقم العينة مكرر' };
+
+    if (existingRow) {
+      const hasMaterial = existingRow[4] !== ''; // Col E
+      const hasLabResult = existingRow[15] !== ''; // Col P
+
+      if (hasMaterial && hasLabResult) { // Case 1
+        return { valid: false, message: 'هذا التانك مكتمل التسجيل والتحليل (مكرر).', type: 'error' };
+      }
+      if (portal === 'A' && hasMaterial) { // Case 2
+        return { valid: false, message: 'تم تسجيل الإنتاج مسبقاً لهذا التانك.', type: 'error' };
+      }
+      if (portal === 'B' && hasLabResult) { // Case 3
+        return { valid: false, message: 'تم تحليل هذا التانك مسبقاً.', type: 'error' };
+      }
+      if (portal === 'A' && hasLabResult && !hasMaterial) { // Case 4
+        return { valid: true, message: 'تم التحليل معملياً.. جاهز لاستكمال بيانات الإنتاج.', type: 'success' };
+      }
+      if (portal === 'B' && hasMaterial && !hasLabResult) { // Case 5
+        return { valid: true, message: 'تم ارسال التانك.. جاهز لإدخال نتيجة التحليل.', type: 'info' };
+      }
     }
-    
-    const maxSerial = Math.max.apply(null, existingSerials.filter(function(n) { return typeof n === 'number' && !isNaN(n); }));
-    
-    if (serialNumber !== maxSerial + 1) {
-      return { valid: false, message: 'رقم العينة يجب أن يكون ' + (maxSerial + 1) };
+
+    if (serialNumber === maxSerial + 1) {
+      if (portal === 'B') { // Case 6
+         return { valid: true, message: 'يرجي الابلاغ بالنتيجة للتجهيز.. جاهز لإدخال نتيجة التحليل.', type: 'success' };
+      } else { // Case 7
+         return { valid: true, message: 'لم يتم التحليل بعد، يرجي مراجعة المعمل قبل الارسال', type: 'warning' };
+      }
+    } else {
+      return { valid: false, message: 'رقم التانك يجب أن يكون ' + (maxSerial + 1), type: 'error' };
     }
-    
-    return { valid: true, message: '' };
   } catch (error) {
     throw new Error('Error validating serial: ' + error.message);
   }
 }
 
-// Calculate v/v% from pH (returns as fraction, not percentage)
-function calculateVV(pH) {
-  try {
-    const Ka = 0.000018;
-    const molarMass = 60.05;
-    
-    const hPlus = Math.pow(10, -pH);
-    
-    const molarity = hPlus + (Math.pow(hPlus, 2) / Ka);
-    
-    const percentage = (molarity * molarMass) / 10;
-    
-    const fraction = percentage / 100;
-    
-    return fraction.toFixed(6);
-  } catch (error) {
-    throw new Error('Error calculating v/v%: ' + error.message);
-  }
-}
-
-// Save Portal A data (with external spreadsheet copy)
+// Save Portal A data (Concurrent Workflow Upsert)
 function savePortalAData(data) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let tankSheet = ss.getSheetByName('Tank');
-    
     if (!tankSheet) {
       tankSheet = ss.insertSheet('Tank');
       const headers = [
         'Timestamp', 'User Email', 'التاريخ', '', 'نوع الخامة', 'طريقة التحضير',
         'العدد (A2)', 'العدد (A3)', 'العدد (A4)', 'العدد (A5)',
-        'قراءة الجهاز', '', 'Serial Number', 'v/v%'
+        'Old Device', 'Old Prev Dev', 'Serial Number', 'Old v/v%', 'Old Prev v/v%',
+        'نتيجة التحليل المعملي', 'وقت التحليل المعملي', 'صورة التحليل المعملي'
       ];
       tankSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
       tankSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
     }
+
+    const quantityCol = data.materialIndex + 4; 
+    let rowIndex = -1;
+
+    if (!data.isBlossomOrRose) {
+      const lastRow = tankSheet.getLastRow();
+      if (lastRow >= 2) {
+        const table = tankSheet.getRange(2, 1, lastRow - 1, 18).getValues();
+        for (let i = 0; i < table.length; i++) {
+          if (table[i][12] == data.serialNumber) { // Col M (Index 12)
+            rowIndex = i + 2; break;
+          }
+        }
+      }
+    }
+
+    const timestampStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
     
-    const row = new Array(14).fill('');
-    
-    row[0] = new Date();
-    row[1] = Session.getActiveUser().getEmail();
-    row[2] = 'تاريخ اليوم';
-    row[3] = '';
-    row[4] = data.material;
-    row[5] = data.preparation || '';
-    
-    const quantityCol = data.materialIndex + 4;
-    row[quantityCol] = data.quantity;
-    
-    // For blossom/rose: save blank values for readings, serial, and v/v%
-    if (data.isBlossomOrRose) {
-      row[10] = '';  // Device reading blank
-      row[11] = '';
-      row[12] = '';  // Serial number blank
-      row[13] = '';  // v/v% blank
+    if (rowIndex > -1) {
+      // UPDATE EXISTING ROW (Started by Portal B)
+      tankSheet.getRange(rowIndex, 1).setValue(timestampStr);
+      tankSheet.getRange(rowIndex, 2).setValue(Session.getActiveUser().getEmail());
+      tankSheet.getRange(rowIndex, 3).setValue('تاريخ اليوم');
+      tankSheet.getRange(rowIndex, 5).setValue(data.material); // Col E
+      tankSheet.getRange(rowIndex, 6).setValue(data.preparation || ''); // Col F
+      tankSheet.getRange(rowIndex, quantityCol + 1).setValue(data.quantity);
     } else {
-      row[10] = data.deviceReading;
-      row[11] = '';
-      row[12] = data.serialNumber;
-      row[13] = data.calculatedValue;
+      // INSERT NEW ROW (Portal A First)
+      const row = new Array(18).fill('');
+      row[0] = timestampStr;
+      row[1] = Session.getActiveUser().getEmail();
+      row[2] = 'تاريخ اليوم';
+      row[4] = data.material;
+      row[5] = data.preparation || '';
+      row[quantityCol] = data.quantity;
+      if (!data.isBlossomOrRose) row[12] = data.serialNumber; // Col M
+      
+      tankSheet.appendRow(row);
     }
-    
-    // Save to main Tank sheet
-    tankSheet.appendRow(row);
-    
-    // Save copy to external spreadsheet (including blossom/rose)
+
+    // Export to external spreadsheet (Strictly 14 Columns)
     try {
-      saveToExternalSpreadsheet(row);
-    } catch (externalError) {
-      Logger.log('Error saving to external spreadsheet: ' + externalError.message);
-      // Continue even if external save fails - don't block main save
+      const extRow = new Array(14).fill('');
+      extRow[0] = timestampStr;
+      extRow[1] = Session.getActiveUser().getEmail();
+      extRow[2] = 'تاريخ اليوم';
+      extRow[4] = data.material;
+      extRow[5] = data.preparation || '';
+      extRow[quantityCol] = data.quantity;
+      if (!data.isBlossomOrRose) extRow[12] = data.serialNumber; // Col M
+      saveToExternalSpreadsheet(extRow);
+    } catch (err) {
+      Logger.log('Error saving external: ' + err.message);
     }
-    
-    return { success: true, message: 'تم حفظ البيانات بنجاح' };
+
+    return { success: true, message: 'تم حفظ بيانات الإنتاج بنجاح' };
   } catch (error) {
     throw new Error('Error saving data: ' + error.message);
   }
@@ -1183,13 +1206,13 @@ function endProdSession(data) {
   } catch (e) { throw new Error(e.message); }
 }
 
-function getTodayProdSessions() {
+function getTodayProdSessions(targetDateStr) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Production_Logs');
     if (!sheet || sheet.getLastRow() < 2) return [];
     
-    const todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    const todayStr = targetDateStr || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
     const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
     const notesData = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getNotes();
     
