@@ -48,45 +48,13 @@
 
         <div class="form-group">
           <label class="form-label">
-            <i class="fas fa-gauge"></i> قراءات الجهاز *
+            <i class="fas fa-barcode"></i> رقم التانك *
           </label>
-          <div class="readings-group">
-            <div class="reading-input-wrapper">
-              <label class="reading-label">قراءة 1</label>
-              <input type="text" id="deviceReading1" class="form-control reading-input" placeholder="0.00" inputmode="decimal" onblur="calculateAverageA()">
-            </div>
-            <div class="reading-input-wrapper">
-              <label class="reading-label">قراءة 2</label>
-              <input type="text" id="deviceReading2" class="form-control reading-input" placeholder="0.00" inputmode="decimal" onblur="calculateAverageA()">
-            </div>
-            <div class="reading-input-wrapper">
-              <label class="reading-label">قراءة 3</label>
-              <input type="text" id="deviceReading3" class="form-control reading-input" placeholder="0.00" inputmode="decimal" onblur="calculateAverageA()">
-            </div>
-          </div>
-          <small class="form-hint">أدخل قراءة واحدة على الأقل - القراءات أقل من 10 سيتم تحويلها تلقائياً</small>
-          <div id="averageDisplayA" class="average-display" style="display: none;">
-            <i class="fas fa-calculator"></i>
-            <span>المتوسط: <strong id="averageValueA">0.00</strong> pH</span>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">
-            <i class="fas fa-barcode"></i> رقم العينة *
-          </label>
-          <input type="number" id="serialNum" class="form-control" placeholder="رقم تسلسلي" min="1" step="1" inputmode="numeric" required>
-          <div id="serialError" class="error-msg" style="display: none;">
-            <i class="fas fa-exclamation-circle"></i>
+          <input type="number" id="serialNum" class="form-control" placeholder="رقم التانك (مثال: 1)" min="1" step="1" inputmode="numeric" required>
+          <div id="serialFeedbackA" style="display: none; padding: 12px; border-radius: 6px; margin-top: 8px; font-size: 0.85rem; font-weight: bold; align-items: center; gap: 8px;">
+            <i class="fas"></i>
             <span></span>
           </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">
-            <i class="fas fa-calculator"></i> v/v%
-          </label>
-          <input type="text" id="vvPercent" class="form-control readonly-field" readonly placeholder="سيتم الحساب تلقائياً">
         </div>
 
         <div class="button-group">
@@ -137,36 +105,13 @@
         <div id="tankPath" style="display: none;">
           <div class="form-group">
             <label class="form-label">
-              <i class="fas fa-barcode"></i> رقم العينة *
+              <i class="fas fa-barcode"></i> رقم التانك *
             </label>
-            <select id="tankSerial" class="form-control" onchange="loadTankInfo()">
-              <option value="">-- اختر رقم العينة --</option>
-            </select>
-          </div>
-
-          <div id="tankInfoCard" class="info-card" style="display: none;">
-            <div class="info-card-header">
-              <i class="fas fa-info-circle"></i>
-              <span>معلومات التانك</span>
+            <input type="number" id="tankSerial" class="form-control" placeholder="أدخل رقم التانك (مثال: 1)" min="1" step="1" inputmode="numeric">
+            <div id="serialFeedbackB" style="display: none; padding: 12px; border-radius: 6px; margin-top: 8px; font-size: 0.85rem; font-weight: bold; align-items: center; gap: 8px;">
+              <i class="fas"></i>
+              <span></span>
             </div>
-            <div class="info-card-body">
-              <div class="info-row">
-                <span class="info-label">التاريخ:</span>
-                <span id="tankDate" class="info-value"></span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">قراءة الجهاز 1:</span>
-                <span id="tankReading1" class="info-value"></span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">النسبة المئوية:</span>
-                <span id="tankPercent" class="info-value"></span>
-              </div>
-            </div>
-          </div>
-
-          <div id="previousAnalysisTip" class="previous-analysis-tip" style="display: none;">
-            <div id="previousAnalysisTipContent"></div>
           </div>
         </div>
 
@@ -182,46 +127,7 @@
         </div>
 
         <div id="commonFields" style="display: none;">
-          <div class="form-group">
-            <label class="form-label">
-              <i class="fas fa-microscope"></i> طريقة التحليل *
-            </label>
-            <div class="toggle-group">
-              <button type="button" class="toggle-btn" data-analysis-method="device" onclick="selectAnalysisMethod('device')">الجهاز</button>
-              <button type="button" class="toggle-btn" data-analysis-method="lab" onclick="selectAnalysisMethod('lab')">معملي</button>
-            </div>
-          </div>
-
-          <div class="form-group" id="deviceReadingsGroup" style="display: none;">
-            <label class="form-label">
-              <i class="fas fa-gauge"></i> قراءات الجهاز *
-            </label>
-            <div class="readings-group">
-              <div class="reading-input-wrapper">
-                <label class="reading-label">قراءة 1</label>
-                <input type="text" id="deviceReadingB1" class="form-control reading-input" placeholder="0.00" inputmode="decimal" onblur="calculateAverageB()">
-              </div>
-              <div class="reading-input-wrapper">
-                <label class="reading-label">قراءة 2</label>
-                <input type="text" id="deviceReadingB2" class="form-control reading-input" placeholder="0.00" inputmode="decimal" onblur="calculateAverageB()">
-              </div>
-              <div class="reading-input-wrapper">
-                <label class="reading-label">قراءة 3</label>
-                <input type="text" id="deviceReadingB3" class="form-control reading-input" placeholder="0.00" inputmode="decimal" onblur="calculateAverageB()">
-              </div>
-            </div>
-            <small class="form-hint">أدخل قراءة واحدة على الأقل - القراءات أقل من 10 سيتم تحويلها تلقائياً</small>
-            <div id="averageDisplayB" class="average-display" style="display: none;">
-              <i class="fas fa-calculator"></i>
-              <span>المتوسط: <strong id="averageValueB">0.00</strong> pH</span>
-            </div>
-            <div id="calculatedVV" class="calculated-display" style="display: none;">
-              <i class="fas fa-calculator"></i>
-              <span>v/v%: <strong id="vvValue">0.00</strong></span>
-            </div>
-          </div>
-
-          <div class="form-group" id="labResultGroup" style="display: none;">
+          <div class="form-group" id="labResultGroup">
             <label class="form-label">
               <i class="fas fa-chart-line"></i> نتيجة التحليل المعملي *
             </label>
@@ -238,32 +144,32 @@
               </label>
               <input type="text" id="refNumber" class="form-control" placeholder="رقم التشغيلة">
             </div>
+          </div>
 
-            <div class="form-group">
-              <label class="form-label">
-                <i class="fas fa-camera"></i> صورة العينة
-              </label>
-              <div class="image-upload-area">
-                <input type="file" id="imageInput" accept="image/*" capture="environment" style="display: none;" onchange="previewImage(event)">
-                <button type="button" class="btn-upload" onclick="document.getElementById('imageInput').click()">
-                  <i class="fas fa-camera"></i>
-                  <span>التقاط أو رفع صورة</span>
-                </button>
-                <div id="imagePreview" class="image-preview" style="display: none;">
-                  <img id="previewImg" src="" alt="Preview">
-                  <div class="image-actions">
-                    <button type="button" class="btn btn-sm btn-success" onclick="confirmImage()">
-                      <i class="fas fa-check"></i> تأكيد
-                    </button>
-                    <button type="button" class="btn btn-sm btn-secondary" onclick="reuploadImage()">
-                      <i class="fas fa-redo"></i> إعادة رفع
-                    </button>
-                  </div>
+          <div class="form-group" id="commonImageUpload">
+            <label class="form-label">
+              <i class="fas fa-camera"></i> صورة التوثيق (اختياري)
+            </label>
+            <div class="image-upload-area">
+              <input type="file" id="imageInput" accept="image/*" capture="environment" style="display: none;" onchange="previewImage(event)">
+              <button type="button" class="btn-upload" onclick="document.getElementById('imageInput').click()">
+                <i class="fas fa-camera"></i>
+                <span>التقاط أو رفع صورة</span>
+              </button>
+              <div id="imagePreview" class="image-preview" style="display: none;">
+                <img id="previewImg" src="" alt="Preview">
+                <div class="image-actions">
+                  <button type="button" class="btn btn-sm btn-success" onclick="confirmImage()">
+                    <i class="fas fa-check"></i> تأكيد
+                  </button>
+                  <button type="button" class="btn btn-sm btn-secondary" onclick="reuploadImage()">
+                    <i class="fas fa-redo"></i> إعادة رفع
+                  </button>
                 </div>
-                <div id="uploadedImageInfo" class="uploaded-info" style="display: none;">
-                  <i class="fas fa-check-circle"></i>
-                  <span>تم رفع الصورة بنجاح</span>
-                </div>
+              </div>
+              <div id="uploadedImageInfo" class="uploaded-info" style="display: none;">
+                <i class="fas fa-check-circle"></i>
+                <span>تم رفع الصورة بنجاح</span>
               </div>
             </div>
           </div>
@@ -519,6 +425,17 @@
     </div>
     
     <div class="portal-body" style="padding-top: 10px;">
+      <div id="adminStealthToolbar" style="display: none; background: #fee2e2; border: 2px solid #ef4444; border-radius: 8px; padding: 12px; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.1);">
+         <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-user-ninja" style="color: #b91c1c; font-size: 1.2rem;"></i>
+            <span style="color: #b91c1c; font-weight: bold;">وضع الإدارة:</span>
+            <input type="date" id="permanentAdminDate" class="form-control" style="width: auto; padding: 6px 12px; border-color: #fca5a5; font-weight: bold; color: #b91c1c;" onchange="applyOverrideDate(this.value)">
+         </div>
+         <button class="btn btn-secondary btn-sm" style="background: #fef2f2; color: #b91c1c; border-color: #fca5a5; font-weight: bold; margin: 0;" onclick="resetOverrideDate()">
+           <i class="fas fa-times"></i> العودة للوضع الطبيعي
+         </button>
+      </div>
+
       <div class="flex flex-wrap md:flex-nowrap gap-3 mb-6 w-full">
          <div class="flex-1 min-w-[130px] bg-white p-3 rounded-lg border-[3px] border-blue-900 flex flex-col gap-1 shadow-sm">
             <div class="flex items-center justify-between mb-1">
@@ -762,12 +679,112 @@
       </div>
     </div>
   </div>
+
+  <div id="secretAdminModal" class="modal-overlay" style="display: none; z-index: 9999;">
+    <div class="modal-content" style="max-width: 300px;">
+      <h3 style="margin-bottom:15px; color:#b91c1c; text-align:center;"><i class="fas fa-user-ninja"></i> وضع الإدارة</h3>
+      <div class="form-group">
+        <label class="form-label text-center">أدخل الرمز السري</label>
+        <input type="password" id="adminPin" class="form-control text-center" style="letter-spacing: 5px; font-size: 1.2rem;" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); activateAdminMode(); }">
+      </div>
+      <button type="button" class="btn btn-primary" style="width: 100%;" onclick="activateAdminMode()">دخول</button>
+      <button type="button" class="btn btn-secondary" style="width: 100%; margin-top: 10px; background: transparent; border: none; color: #94a3b8;" onclick="document.getElementById('secretAdminModal').style.display='none'">إلغاء</button>
+    </div>
+  </div>
 </template>
 
 <script>
   // Production Portal functions
   var prodDataList = [];
   var uploadedProdImage = null;
+
+  var overrideSystemDate = null; // Secret admin date
+
+  function getActiveDateStr() {
+    if (overrideSystemDate) return overrideSystemDate;
+    const today = new Date();
+    return today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+  }
+
+  let longPressTimer;
+
+  function setupNinjaListener() {
+    const timeTag = document.getElementById('currentTimeHeaderTag');
+    if(!timeTag) return;
+    
+    const startPress = (e) => {
+      longPressTimer = setTimeout(() => {
+        document.getElementById('adminPin').value = '';
+        document.getElementById('secretAdminModal').style.display = 'flex';
+        // Auto-focus the PIN input for immediate typing
+        setTimeout(() => document.getElementById('adminPin').focus(), 100);
+      }, 1500); // 1.5 seconds long press
+    };
+    const cancelPress = () => { clearTimeout(longPressTimer); };
+
+    timeTag.addEventListener('mousedown', startPress);
+    timeTag.addEventListener('touchstart', startPress);
+    timeTag.addEventListener('mouseup', cancelPress);
+    timeTag.addEventListener('mouseleave', cancelPress);
+    timeTag.addEventListener('touchend', cancelPress);
+    
+    timeTag.style.cursor = 'crosshair';
+  }
+
+  function activateAdminMode() {
+    const pin = document.getElementById('adminPin').value;
+    if(!pin) return;
+    
+    showLoading();
+    google.script.run
+      .withSuccessHandler(function(result) {
+        hideLoading();
+        // Check if the passcode is valid AND the user is exactly "Sherif"
+        if(result.valid && result.userName === 'Sherif') { 
+           document.getElementById('secretAdminModal').style.display = 'none';
+           document.getElementById('adminStealthToolbar').style.display = 'flex';
+           
+           const datePicker = document.getElementById('permanentAdminDate');
+           if(!datePicker.value) {
+              datePicker.value = getActiveDateStr();
+           }
+           
+           applyOverrideDate(datePicker.value);
+        } else {
+           alert('الرمز السري خاطئ أو ليس لديك صلاحية الإدارة!');
+           document.getElementById('secretAdminModal').style.display = 'none';
+        }
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        alert('خطأ في التحقق من الرمز: ' + error.message);
+      })
+      .authenticateUser(pin);
+  }
+
+  function applyOverrideDate(selectedDate) {
+    if(!selectedDate) return;
+    overrideSystemDate = selectedDate;
+    
+    const timeTag = document.getElementById('currentTimeHeaderTag');
+    timeTag.style.backgroundColor = '#b91c1c'; // Red to indicate secret mode
+    timeTag.style.borderColor = '#991b1b';
+    timeTag.textContent = 'سجل: ' + overrideSystemDate;
+    
+    loadProdSessions();
+  }
+
+  function resetOverrideDate() {
+    overrideSystemDate = null;
+    document.getElementById('adminStealthToolbar').style.display = 'none';
+    document.getElementById('permanentAdminDate').value = '';
+    
+    const timeTag = document.getElementById('currentTimeHeaderTag');
+    timeTag.style.backgroundColor = '#2563eb';
+    timeTag.style.borderColor = '#1d4ed8';
+    
+    loadProdSessions();
+  }
 
   function initPortalProd() {
     showLoading();
@@ -781,6 +798,7 @@
           opt.value = p; opt.textContent = p;
           sel.appendChild(opt);
         });
+        setupNinjaListener();
         loadProdSessions();
       })
       .withFailureHandler(function(e) { hideLoading(); alert(e.message); })
@@ -795,7 +813,7 @@
         renderProdSessions();
       })
       .withFailureHandler(function(e) { alert(e.message); })
-      .getTodayProdSessions();
+      .getTodayProdSessions(overrideSystemDate);
   }
 
   function formatDuration(mins) {
@@ -1036,13 +1054,17 @@
     });
 
     let nowRight = ((nowMins - tlStart) / tlSpan) * 100;
-    if (nowRight >= 0 && nowRight <= 100) {
+    
+    // Only show the "Now" line if we are looking at actual today
+    if (!overrideSystemDate && nowRight >= 0 && nowRight <= 100) {
       transHTML += `<div class="absolute top-[-8px] bottom-[-8px] border-r-[3px] border-blue-600 z-30" style="right:${nowRight}%;" title="الآن ${getHM(nowMins)}">
          <div class="absolute -bottom-3 right-[50%] translate-x-[50%] w-3 h-3 bg-blue-600 rounded-full shadow"></div>
       </div>`;
     }
 
-    document.getElementById('currentTimeHeaderTag').textContent = 'الآن ' + getHM(nowMins);
+    if (!overrideSystemDate) {
+      document.getElementById('currentTimeHeaderTag').textContent = 'الآن ' + getHM(nowMins);
+    }
     transContainer.innerHTML = transHTML;
     vtl.innerHTML = tlHTML;
     
@@ -1151,8 +1173,7 @@
     const sTime = document.getElementById('prodStartTime').value;
     if(!prod || !sTime) return alert("يرجى اختيار المنتج ووقت البدء");
     
-    const today = new Date();
-    const dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    const dateStr = getActiveDateStr();
     
     showLoading();
     document.getElementById('startModal').style.display = 'none';
@@ -1235,8 +1256,7 @@
     document.getElementById('breakModal').style.display = 'none';
     showLoading();
 
-    const today = new Date();
-    const dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    const dateStr = getActiveDateStr();
 
     google.script.run
       .withSuccessHandler(function() { hideLoading(); loadProdSessions(); })
@@ -1395,8 +1415,7 @@
 
   function triggerWasteSync() {
     showLoading();
-    const today = new Date();
-    const dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    const dateStr = getActiveDateStr();
     
     google.script.run
       .withSuccessHandler(function() { 
@@ -1410,11 +1429,50 @@
       .forceSyncWasteTimes(dateStr);
   }
 
+  // Global Validation Feedback Logic
+  let isTankValidA = false;
+  let isTankValidB = false;
+
+  function renderValidationFeedback(elementId, result) {
+    const container = document.getElementById(elementId);
+    if (!container) return;
+    
+    const icon = container.querySelector('i');
+    const span = container.querySelector('span');
+    
+    container.style.display = 'flex';
+    span.textContent = result.message;
+    
+    icon.className = 'fas'; // Reset
+    container.style.border = '1px solid';
+    
+    if (result.type === 'error') {
+      icon.classList.add('fa-times-circle');
+      container.style.backgroundColor = '#fee2e2';
+      container.style.borderColor = '#fca5a5';
+      container.style.color = '#b91c1c';
+    } else if (result.type === 'success') {
+      icon.classList.add('fa-check-circle');
+      container.style.backgroundColor = '#dcfce7';
+      container.style.borderColor = '#86efac';
+      container.style.color = '#15803d';
+    } else if (result.type === 'info') {
+      icon.classList.add('fa-info-circle');
+      container.style.backgroundColor = '#e0f2fe';
+      container.style.borderColor = '#7dd3fc';
+      container.style.color = '#0369a1';
+    } else if (result.type === 'warning') {
+      icon.classList.add('fa-exclamation-triangle');
+      container.style.backgroundColor = '#fef3c7';
+      container.style.borderColor = '#fcd34d';
+      container.style.color = '#b45309';
+    }
+  }
+
   // Portal A variables
   var selectedMaterial = '';
   var selectedMaterialIndex = 0;
   var selectedPreparation = '';
-  var averageReadingA = 0;
 
   // Portal B variables
   var sampleType = '';
@@ -1491,59 +1549,21 @@
     const materialLower = selectedMaterial.toLowerCase().trim();
     const isBlossomOrRose = (materialLower === 'blossom' || materialLower === 'rose');
     
-    // Get reading inputs and serial input
-    const reading1 = document.getElementById('deviceReading1');
-    const reading2 = document.getElementById('deviceReading2');
-    const reading3 = document.getElementById('deviceReading3');
     const serialInput = document.getElementById('serialNum');
-    const vvInput = document.getElementById('vvPercent');
-    const averageDisplay = document.getElementById('averageDisplayA');
     
     if (isBlossomOrRose) {
-      // Disable device readings
-      reading1.disabled = true;
-      reading2.disabled = true;
-      reading3.disabled = true;
-      reading1.removeAttribute('required');
-      reading2.removeAttribute('required');
-      reading3.removeAttribute('required');
-      reading1.value = '';
-      reading2.value = '';
-      reading3.value = '';
-      
-      // Disable serial number
+      // Disable serial number for Blossom/Rose
       serialInput.disabled = true;
       serialInput.removeAttribute('required');
       serialInput.value = '';
-      
-      // Clear v/v%
-      vvInput.value = '';
-      
-      // Hide average display
-      averageDisplay.style.display = 'none';
-      averageReadingA = 0;
-      
-      // Hide serial error if shown
       document.getElementById('serialError').style.display = 'none';
-      
     } else {
-      // Enable device readings
-      reading1.disabled = false;
-      reading2.disabled = false;
-      reading3.disabled = false;
-      
-      // Enable serial number
+      // Enable serial number for regular materials
       serialInput.disabled = false;
       serialInput.setAttribute('required', 'required');
-      
-      // Clear values for fresh start
-      reading1.value = '';
-      reading2.value = '';
-      reading3.value = '';
       serialInput.value = '';
-      vvInput.value = '';
-      averageDisplay.style.display = 'none';
-      averageReadingA = 0;
+      document.getElementById('serialFeedbackA').style.display = 'none';
+      isTankValidA = false;
     }
   }
 
@@ -1559,76 +1579,26 @@
     });
 
     const serialInput = document.getElementById('serialNum');
-    serialInput.addEventListener('blur', function() {
-      const serial = parseInt(this.value);
-      if (!isNaN(serial)) {
-        showLoading();
-        google.script.run
-          .withSuccessHandler(function(result) {
-            hideLoading();
-            const errDiv = document.getElementById('serialError');
-            if (!result.valid) {
-              errDiv.querySelector('span').textContent = result.message;
-              errDiv.style.display = 'flex';
-            } else {
-              errDiv.style.display = 'none';
-            }
-          })
-          .withFailureHandler(function(error) {
-            hideLoading();
-            alert('خطأ: ' + error.message);
-          })
-          .validateSerialNumber(serial);
-      }
-    });
-  }
-
-  function calculateAverageA() {
-    const reading1 = document.getElementById('deviceReading1').value.replace(',', '.');
-    const reading2 = document.getElementById('deviceReading2').value.replace(',', '.');
-    const reading3 = document.getElementById('deviceReading3').value.replace(',', '.');
-    
-    var readings = [];
-    
-    if (reading1 && !isNaN(reading1)) {
-      var val1 = parseFloat(reading1);
-      if (val1 >= 10) val1 = val1 / 100;
-      document.getElementById('deviceReading1').value = val1.toFixed(2);
-      readings.push(val1);
-    }
-    
-    if (reading2 && !isNaN(reading2)) {
-      var val2 = parseFloat(reading2);
-      if (val2 >= 10) val2 = val2 / 100;
-      document.getElementById('deviceReading2').value = val2.toFixed(2);
-      readings.push(val2);
-    }
-    
-    if (reading3 && !isNaN(reading3)) {
-      var val3 = parseFloat(reading3);
-      if (val3 >= 10) val3 = val3 / 100;
-      document.getElementById('deviceReading3').value = val3.toFixed(2);
-      readings.push(val3);
-    }
-    
-    if (readings.length > 0) {
-      averageReadingA = readings.reduce(function(a, b) { return a + b; }, 0) / readings.length;
-      
-      document.getElementById('averageValueA').textContent = averageReadingA.toFixed(2);
-      document.getElementById('averageDisplayA').style.display = 'flex';
-      
-      showLoading();
-      google.script.run
-        .withSuccessHandler(function(result) {
-          hideLoading();
-          document.getElementById('vvPercent').value = (result * 100).toFixed(4);
-        })
-        .withFailureHandler(hideLoading)
-        .calculateVV(averageReadingA);
-    } else {
-      document.getElementById('averageDisplayA').style.display = 'none';
-      document.getElementById('vvPercent').value = '';
-      averageReadingA = 0;
+    if (serialInput) {
+      serialInput.addEventListener('blur', function() {
+        const serial = parseInt(this.value);
+        if (!isNaN(serial)) {
+          showLoading();
+          google.script.run
+            .withSuccessHandler(function(result) {
+              hideLoading();
+              isTankValidA = result.valid;
+              renderValidationFeedback('serialFeedbackA', result);
+            })
+            .withFailureHandler(function(error) {
+              hideLoading();
+              alert('خطأ في الاتصال: ' + error.message);
+            })
+            .validateSerialNumber(serial, 'A'); // Pass Context A
+        } else {
+          document.getElementById('serialFeedbackA').style.display = 'none';
+        }
+      });
     }
   }
 
@@ -1645,22 +1615,24 @@
       return;
     }
 
-    if (averageReadingA === 0) {
-      alert('الرجاء إدخال قراءة واحدة على الأقل');
-      return;
-    }
-
     const quantity = document.getElementById('quantity').value;
     const serialNum = document.getElementById('serialNum').value;
-    const vvPercentDisplay = document.getElementById('vvPercent').value;
+    
+    const materialLower = selectedMaterial.toLowerCase().trim();
+    const isBlossomOrRose = (materialLower === 'blossom' || materialLower === 'rose');
 
-    if (!quantity || !serialNum) {
-      alert('الرجاء ملء جميع الحقول المطلوبة');
+    if (!quantity) {
+      alert('الرجاء إدخال العدد');
       return;
     }
 
-    if (document.getElementById('serialError').style.display !== 'none') {
-      alert('الرجاء تصحيح رقم العينة');
+    if (!isBlossomOrRose && !serialNum) {
+      alert('الرجاء إدخال رقم التانك');
+      return;
+    }
+
+    if (!isBlossomOrRose && !isTankValidA) {
+      alert('رقم التانك غير صالح للتسجيل. يرجى مراجعة رسالة التحقق.');
       return;
     }
 
@@ -1669,9 +1641,8 @@
       materialIndex: selectedMaterialIndex,
       preparation: selectedPreparation,
       quantity: parseFloat(quantity),
-      deviceReading: averageReadingA,
-      serialNumber: parseInt(serialNum),
-      calculatedValue: parseFloat(vvPercentDisplay) / 100
+      serialNumber: isBlossomOrRose ? null : parseInt(serialNum),
+      isBlossomOrRose: isBlossomOrRose
     };
 
     showLoading();
@@ -1684,12 +1655,13 @@
           selectedMaterial = '';
           selectedMaterialIndex = 0;
           selectedPreparation = '';
-          averageReadingA = 0;
+          
           document.querySelectorAll('.toggle-btn').forEach(function(b) { 
             b.classList.remove('active');
           });
           document.getElementById('preparationGroup').style.display = 'none';
-          document.getElementById('averageDisplayA').style.display = 'none';
+          document.getElementById('serialFeedbackA').style.display = 'none';
+          isTankValidA = false;
           
           setTimeout(function() {
             goHome();
@@ -1708,54 +1680,26 @@
     showLoading();
     
     google.script.run
-      .withSuccessHandler(function(tankSerials) {
-        const tankSelect = document.getElementById('tankSerial');
-        tankSerials.forEach(function(serial) {
+      .withSuccessHandler(function(products) {
+        hideLoading();
+        const productSelect = document.getElementById('productName');
+        productSelect.innerHTML = '<option value="">-- اختر المنتج --</option>'; // Clear existing
+        products.forEach(function(product) {
           const option = document.createElement('option');
-          option.value = serial;
-          option.textContent = serial;
-          tankSelect.appendChild(option);
+          option.value = product;
+          option.textContent = product;
+          productSelect.appendChild(option);
         });
         
-        google.script.run
-          .withSuccessHandler(function(products) {
-            hideLoading();
-            const productSelect = document.getElementById('productName');
-            products.forEach(function(product) {
-              const option = document.createElement('option');
-              option.value = product;
-              option.textContent = product;
-              productSelect.appendChild(option);
-            });
-            
-            setupPortalBListeners();
-          })
-          .withFailureHandler(function(error) {
-            hideLoading();
-            alert('خطأ في تحميل المنتجات: ' + error.message);
-          })
-          .getProductNames();
+        setupPortalBListeners();
       })
       .withFailureHandler(function(error) {
         hideLoading();
-        alert('خطأ في تحميل أرقام التانك: ' + error.message);
+        alert('خطأ في تحميل المنتجات: ' + error.message);
       })
-      .getTankSerialNumbers();
+      .getProductNames();
   }
 
-  function setupPortalBListeners() {
-    const productSelect = document.getElementById('productName');
-    if (productSelect) {
-      productSelect.addEventListener('change', function() {
-        if (this.value) {
-          document.getElementById('commonFields').style.display = 'block';
-          document.getElementById('productOnlyFields').style.display = 'block';
-        } else {
-          document.getElementById('commonFields').style.display = 'none';
-        }
-      });
-    }
-  }
 
   function selectSampleType(type) {
     sampleType = type;
@@ -1769,183 +1713,76 @@
       document.getElementById('tankPath').style.display = 'block';
       document.getElementById('productPath').style.display = 'none';
       document.getElementById('productOnlyFields').style.display = 'none';
+      document.getElementById('commonFields').style.display = 'block';
     } else {
       document.getElementById('tankPath').style.display = 'none';
       document.getElementById('productPath').style.display = 'block';
+      document.getElementById('commonFields').style.display = document.getElementById('productName').value ? 'block' : 'none';
     }
-    
-    document.getElementById('commonFields').style.display = 'none';
-    document.getElementById('tankInfoCard').style.display = 'none';
-    document.getElementById('previousAnalysisTip').style.display = 'none';
   }
 
-  function loadTankInfo() {
-    const serial = document.getElementById('tankSerial').value;
-    if (!serial) {
-      document.getElementById('tankInfoCard').style.display = 'none';
-      document.getElementById('commonFields').style.display = 'none';
-      document.getElementById('previousAnalysisTip').style.display = 'none';
-      return;
-    }
-    
-    showLoading();
-    google.script.run
-      .withSuccessHandler(function(info) {
-        hideLoading();
-        
-        document.getElementById('tankDate').textContent = info.timestamp;
-        document.getElementById('tankReading1').textContent = info.deviceReading1;
-        document.getElementById('tankPercent').textContent = (info.vvPercent * 100).toFixed(2) + '%';
-        
-        document.getElementById('tankInfoCard').style.display = 'block';
+  function setupPortalBListeners() {
+    document.getElementById('productName').addEventListener('change', function() {
+      if (this.value) {
         document.getElementById('commonFields').style.display = 'block';
-        
-        const hasPreviousDevice = info.previousDeviceReading !== '' && info.previousDeviceReading !== null;
-        const hasPreviousLab = info.previousLabResult !== '' && info.previousLabResult !== null;
-        
-        if (hasPreviousDevice || hasPreviousLab) {
-          var tipHTML = '';
-          
-          if (hasPreviousDevice) {
-            tipHTML += '<div class="analysis-subcard device-subcard">';
-            tipHTML += '<div class="subcard-icon"><i class="fas fa-mobile-screen-button"></i></div>';
-            tipHTML += '<div class="subcard-content">';
-            tipHTML += '<div class="subcard-title">تحليل بالجهاز</div>';
-            tipHTML += '<div class="subcard-reading">قراءة: ' + info.previousDeviceReading + ' pH</div>';
-            tipHTML += '<div class="subcard-result">النتيجة: ' + (info.previousVVPercent * 100).toFixed(2) + '%</div>';
-            if (info.deviceAnalysisTime) {
-              tipHTML += '<div class="subcard-time">' + info.deviceAnalysisTime + '</div>';
-            }
-            tipHTML += '</div></div>';
-          }
-          
-          if (hasPreviousLab) {
-            tipHTML += '<div class="analysis-subcard lab-subcard">';
-            tipHTML += '<div class="subcard-icon"><i class="fas fa-flask-vial"></i></div>';
-            tipHTML += '<div class="subcard-content">';
-            tipHTML += '<div class="subcard-title">تحليل معملي</div>';
-            tipHTML += '<div class="subcard-result">النتيجة: ' + (info.previousLabResult * 100).toFixed(2) + '%</div>';
-            if (info.labAnalysisTime) {
-              tipHTML += '<div class="subcard-time">' + info.labAnalysisTime + '</div>';
-            }
-            tipHTML += '</div></div>';
-          }
-          
-          document.getElementById('previousAnalysisTipContent').innerHTML = tipHTML;
-          document.getElementById('previousAnalysisTip').style.display = 'flex';
-        } else {
-          document.getElementById('previousAnalysisTip').style.display = 'none';
-        }
-      })
-      .withFailureHandler(function(error) {
-        hideLoading();
-        alert('خطأ: ' + error.message);
-      })
-      .getTankInfo(parseInt(serial));
-  }
-
-  function selectAnalysisMethod(method) {
-    analysisMethod = method;
-    
-    document.querySelectorAll('[data-analysis-method]').forEach(function(btn) {
-      btn.classList.remove('active');
+        document.getElementById('productOnlyFields').style.display = 'block';
+      } else {
+        document.getElementById('commonFields').style.display = 'none';
+        document.getElementById('productOnlyFields').style.display = 'none';
+      }
     });
-    event.target.classList.add('active');
-    
-    if (method === 'device') {
-      document.getElementById('deviceReadingsGroup').style.display = 'block';
-      document.getElementById('labResultGroup').style.display = 'none';
-      
-      document.getElementById('deviceReadingB1').value = '';
-      document.getElementById('deviceReadingB2').value = '';
-      document.getElementById('deviceReadingB3').value = '';
-      document.getElementById('averageDisplayB').style.display = 'none';
-      document.getElementById('calculatedVV').style.display = 'none';
-      averageReadingB = 0;
-    } else {
-      document.getElementById('deviceReadingsGroup').style.display = 'none';
-      document.getElementById('labResultGroup').style.display = 'block';
-      document.getElementById('labResult').value = '';
-    }
-  }
 
-  function calculateAverageB() {
-    const reading1 = document.getElementById('deviceReadingB1').value.replace(',', '.');
-    const reading2 = document.getElementById('deviceReadingB2').value.replace(',', '.');
-    const reading3 = document.getElementById('deviceReadingB3').value.replace(',', '.');
-    
-    var readings = [];
-    
-    if (reading1 && !isNaN(reading1)) {
-      var val1 = parseFloat(reading1);
-      if (val1 >= 10) val1 = val1 / 100;
-      document.getElementById('deviceReadingB1').value = val1.toFixed(2);
-      readings.push(val1);
-    }
-    
-    if (reading2 && !isNaN(reading2)) {
-      var val2 = parseFloat(reading2);
-      if (val2 >= 10) val2 = val2 / 100;
-      document.getElementById('deviceReadingB2').value = val2.toFixed(2);
-      readings.push(val2);
-    }
-    
-    if (reading3 && !isNaN(reading3)) {
-      var val3 = parseFloat(reading3);
-      if (val3 >= 10) val3 = val3 / 100;
-      document.getElementById('deviceReadingB3').value = val3.toFixed(2);
-      readings.push(val3);
-    }
-    
-    if (readings.length > 0) {
-      averageReadingB = readings.reduce(function(a, b) { return a + b; }, 0) / readings.length;
-      
-      document.getElementById('averageValueB').textContent = averageReadingB.toFixed(2);
-      document.getElementById('averageDisplayB').style.display = 'flex';
-      
-      showLoading();
-      google.script.run
-        .withSuccessHandler(function(result) {
-          hideLoading();
-          document.getElementById('vvValue').textContent = (result * 100).toFixed(2);
-          document.getElementById('calculatedVV').style.display = 'flex';
-        })
-        .withFailureHandler(hideLoading)
-        .calculateVV(averageReadingB);
-    } else {
-      document.getElementById('averageDisplayB').style.display = 'none';
-      document.getElementById('calculatedVV').style.display = 'none';
-      averageReadingB = 0;
+    const tankInput = document.getElementById('tankSerial');
+    if (tankInput) {
+      tankInput.addEventListener('blur', function() {
+        const serial = parseInt(this.value);
+        if (!isNaN(serial)) {
+          showLoading();
+          google.script.run
+            .withSuccessHandler(function(result) {
+              hideLoading();
+              isTankValidB = result.valid;
+              renderValidationFeedback('serialFeedbackB', result);
+            })
+            .withFailureHandler(function(error) {
+              hideLoading();
+              alert('خطأ في الاتصال: ' + error.message);
+            })
+            .validateSerialNumber(serial, 'B'); // Pass Context B
+        } else {
+          document.getElementById('serialFeedbackB').style.display = 'none';
+        }
+      });
     }
   }
 
   function previewImage(event) {
     const file = event.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      uploadedImageData = e.target.result;
-      document.getElementById('previewImg').src = e.target.result;
-      document.getElementById('imagePreview').style.display = 'block';
-      document.getElementById('uploadedImageInfo').style.display = 'none';
-      imageConfirmed = false;
-    };
-    reader.readAsDataURL(file);
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert('حجم الصورة كبير جداً. الحد الأقصى هو 5 ميجابايت.');
+        event.target.value = '';
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('previewImg').src = e.target.result;
+        document.getElementById('imagePreview').style.display = 'block';
+        uploadedImageData = e.target.result;
+      }
+      reader.readAsDataURL(file);
+    }
   }
 
   function confirmImage() {
     if (!uploadedImageData) return;
     
-    const refNum = document.getElementById('refNumber').value || 'TEMP';
-    var concentration = '';
-    
-    if (analysisMethod === 'device') {
-      concentration = document.getElementById('vvValue').textContent || '0.0';
-    } else {
-      concentration = document.getElementById('labResult').value || '0.0';
+    let refNum = document.getElementById('refNumber').value || 'TEMP';
+    if (sampleType === 'tank') {
+      refNum = 'Tank_' + (document.getElementById('tankSerial').value || 'Unknown');
     }
-    
+    const concentration = document.getElementById('labResult').value || '0.0';
     const fileName = refNum + '_' + concentration + '%.jpg';
     
     showLoading();
@@ -1992,58 +1829,35 @@
       return;
     }
     
-    if (!analysisMethod) {
-      alert('الرجاء اختيار طريقة التحليل');
+    const labResultValue = document.getElementById('labResult').value;
+    if (!labResultValue) {
+      alert('الرجاء إدخال نتيجة التحليل المعملي');
       return;
     }
     
     if (sampleType === 'tank') {
       const serial = document.getElementById('tankSerial').value;
       if (!serial) {
-        alert('الرجاء اختيار رقم العينة');
+        alert('الرجاء إدخال رقم التانك');
         return;
       }
       
-      if (analysisMethod === 'device') {
-        if (averageReadingB === 0) {
-          alert('الرجاء إدخال قراءة واحدة على الأقل');
-          return;
-        }
-        
-        const data = {
-          serialNumber: parseInt(serial),
-          analysisMethod: analysisMethod,
-          deviceReading: averageReadingB,
-          vvPercent: parseFloat(document.getElementById('vvValue').textContent) / 100,
-          labResult: null
-        };
-        
-        showLoading();
-        google.script.run
-          .withSuccessHandler(handleSubmitSuccess)
-          .withFailureHandler(handleSubmitError)
-          .updateTankAnalysis(data);
-      } else {
-        const labResultValue = document.getElementById('labResult').value;
-        if (!labResultValue) {
-          alert('الرجاء إدخال نتيجة التحليل المعملي');
-          return;
-        }
-        
-        const data = {
-          serialNumber: parseInt(serial),
-          analysisMethod: analysisMethod,
-          deviceReading: null,
-          vvPercent: null,
-          labResult: parseFloat(labResultValue)
-        };
-        
-        showLoading();
-        google.script.run
-          .withSuccessHandler(handleSubmitSuccess)
-          .withFailureHandler(handleSubmitError)
-          .updateTankAnalysis(data);
+      if (!isTankValidB) {
+        alert('رقم التانك غير صالح للتحليل. يرجى مراجعة رسالة التحقق.');
+        return;
       }
+      
+      const data = {
+        serialNumber: parseInt(serial),
+        labResult: parseFloat(labResultValue),
+        imageUrl: uploadedImageUrl
+      };
+      
+      showLoading();
+      google.script.run
+        .withSuccessHandler(handleSubmitSuccess)
+        .withFailureHandler(handleSubmitError)
+        .saveTankAnalysis(data);
         
     } else {
       const productName = document.getElementById('productName').value;
@@ -2059,50 +1873,18 @@
         return;
       }
       
-      if (analysisMethod === 'device') {
-        if (averageReadingB === 0) {
-          alert('الرجاء إدخال قراءة واحدة على الأقل');
-          return;
-        }
-        
-        const data = {
-          productName: productName,
-          analysisMethod: analysisMethod,
-          deviceReading: averageReadingB,
-          vvPercent: parseFloat(document.getElementById('vvValue').textContent) / 100,
-          labResult: null,
-          referenceNumber: refNumber,
-          imageUrl: uploadedImageUrl
-        };
-        
-        showLoading();
-        google.script.run
-          .withSuccessHandler(handleSubmitSuccess)
-          .withFailureHandler(handleSubmitError)
-          .saveProductAnalysis(data);
-      } else {
-        const labResultValue = document.getElementById('labResult').value;
-        if (!labResultValue) {
-          alert('الرجاء إدخال نتيجة التحليل المعملي');
-          return;
-        }
-        
-        const data = {
-          productName: productName,
-          analysisMethod: analysisMethod,
-          deviceReading: null,
-          vvPercent: null,
-          labResult: parseFloat(labResultValue),
-          referenceNumber: refNumber,
-          imageUrl: uploadedImageUrl
-        };
-        
-        showLoading();
-        google.script.run
-          .withSuccessHandler(handleSubmitSuccess)
-          .withFailureHandler(handleSubmitError)
-          .saveProductAnalysis(data);
-      }
+      const data = {
+        productName: productName,
+        labResult: parseFloat(labResultValue),
+        referenceNumber: refNumber,
+        imageUrl: uploadedImageUrl
+      };
+      
+      showLoading();
+      google.script.run
+        .withSuccessHandler(handleSubmitSuccess)
+        .withFailureHandler(handleSubmitError)
+        .saveProductAnalysis(data);
     }
   }
 
@@ -2113,12 +1895,10 @@
       document.getElementById('formB').reset();
       
       sampleType = '';
-      analysisMethod = '';
       uploadedImageData = null;
       uploadedImageUrl = '';
       uploadedFileId = '';
       imageConfirmed = false;
-      averageReadingB = 0;
       
       document.querySelectorAll('.toggle-btn').forEach(function(b) { 
         b.classList.remove('active');
@@ -2126,11 +1906,10 @@
       document.getElementById('tankPath').style.display = 'none';
       document.getElementById('productPath').style.display = 'none';
       document.getElementById('commonFields').style.display = 'none';
-      document.getElementById('tankInfoCard').style.display = 'none';
       document.getElementById('imagePreview').style.display = 'none';
       document.getElementById('uploadedImageInfo').style.display = 'none';
-      document.getElementById('deviceReadingsGroup').style.display = 'none';
-      document.getElementById('labResultGroup').style.display = 'none';
+      if(document.getElementById('serialFeedbackB')) document.getElementById('serialFeedbackB').style.display = 'none';
+      isTankValidB = false;
       
       setTimeout(function() {
         goHome();
