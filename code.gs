@@ -1504,6 +1504,17 @@ function endOfDayRoutine() {
   let totalProd = 0; let totalBreak = 0; let totalWaste = 0;
   let hasData = false;
   
+  let endDayBreaks = [];
+  updatedData.forEach(function(r) {
+    let rowDate = r[3] instanceof Date ? Utilities.formatDate(r[3], tz, 'yyyy-MM-dd') : String(r[3]).trim();
+    if (rowDate === todayStr && r[12] === 'Completed' && r[4] === 'وقت الراحة') {
+      let sM = timeToMins(r[5] instanceof Date ? Utilities.formatDate(r[5], tz, 'HH:mm') : String(r[5]));
+      let eM = timeToMins(r[6] instanceof Date ? Utilities.formatDate(r[6], tz, 'HH:mm') : String(r[6]));
+      let dur = eM - sM; if(dur < 0) dur += 1440;
+      endDayBreaks.push({start: sM, end: sM + dur});
+    }
+  });
+
   updatedData.forEach(function(r) {
     let rowDate = r[3] instanceof Date ? Utilities.formatDate(r[3], tz, 'yyyy-MM-dd') : String(r[3]).trim();
     if (rowDate === todayStr && r[12] === 'Completed') {
@@ -1512,13 +1523,24 @@ function endOfDayRoutine() {
       let sM = timeToMins(r[5] instanceof Date ? Utilities.formatDate(r[5], tz, 'HH:mm') : String(r[5]));
       let eM = timeToMins(r[6] instanceof Date ? Utilities.formatDate(r[6], tz, 'HH:mm') : String(r[6]));
       let dur = eM - sM; if(dur < 0) dur += 1440;
+      let absEM = sM + dur;
       
       if(sM < actualStart) actualStart = sM;
       if(eM > actualEnd) actualEnd = eM;
       
-      if (product === 'وقت مهدر') totalWaste += dur;
-      else if (product === 'وقت الراحة') totalBreak += dur;
-      else totalProd += dur;
+      if (product === 'وقت مهدر') {
+         totalWaste += dur;
+      } else if (product === 'وقت الراحة') {
+         totalBreak += dur;
+      } else {
+         let netDur = dur;
+         endDayBreaks.forEach(b => {
+             let oStart = Math.max(sM, b.start);
+             let oEnd = Math.min(absEM, b.end);
+             if (oStart < oEnd) netDur -= (oEnd - oStart);
+         });
+         totalProd += netDur;
+      }
     }
   });
   
@@ -1641,10 +1663,22 @@ function getProductionReportData(filters) {
     let actualStart = 1440; let actualEnd = 0;
     let dProd = 0; let dBreak = 0; let dWaste = 0;
 
+    // Collect breaks for the day
+    let dayBreaks = [];
+    dayRows.forEach(r => {
+      if (r[4] === 'وقت الراحة') {
+        let sM = timeToMins(r[5] instanceof Date ? Utilities.formatDate(r[5], tz, 'HH:mm') : String(r[5]));
+        let eM = timeToMins(r[6] instanceof Date ? Utilities.formatDate(r[6], tz, 'HH:mm') : String(r[6]));
+        let dur = eM - sM; if(dur < 0) dur += 1440;
+        dayBreaks.push({start: sM, end: sM + dur});
+      }
+    });
+
     dayRows.forEach(r => {
       let sM = timeToMins(r[5] instanceof Date ? Utilities.formatDate(r[5], tz, 'HH:mm') : String(r[5]));
       let eM = timeToMins(r[6] instanceof Date ? Utilities.formatDate(r[6], tz, 'HH:mm') : String(r[6]));
       let dur = eM - sM; if(dur < 0) dur += 1440;
+      let absEM = sM + dur;
       let product = r[4];
 
       if(sM < actualStart) actualStart = sM;
@@ -1655,10 +1689,17 @@ function getProductionReportData(filters) {
       } else if (product === 'وقت الراحة') {
          dBreak += dur; kpis.break += dur;
       } else {
-         dProd += dur; kpis.prod += dur;
+         let netDur = dur;
+         // Subtract overlapping breaks
+         dayBreaks.forEach(b => {
+             let overlapStart = Math.max(sM, b.start);
+             let overlapEnd = Math.min(absEM, b.end);
+             if (overlapStart < overlapEnd) netDur -= (overlapEnd - overlapStart);
+         });
+         dProd += netDur; kpis.prod += netDur;
          if (!prodMap[product]) prodMap[product] = { qty: 0, dur: 0 };
          prodMap[product].qty += (parseFloat(r[8]) || 0);
-         prodMap[product].dur += dur;
+         prodMap[product].dur += netDur;
       }
     });
 
