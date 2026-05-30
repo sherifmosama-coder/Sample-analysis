@@ -1405,16 +1405,17 @@
     // Safety check: ensure modal exists in current DOM
     const modal = document.getElementById('imagePreviewModal');
     if (!modal) {
-      // If modal missing (e.g. Portal C), open directly in new tab
       window.open(url, '_blank');
       return;
     }
     
     let directUrl = url;
+    // Extract the Google Drive ID safely
     const idMatch = url.match(/[-\w]{25,}/);
     
     if (idMatch && idMatch[0]) {
-      directUrl = 'https://drive.google.com/thumbnail?id=' + idMatch[0] + '&sz=w1000';
+      // Use the googleusercontent domain to completely bypass third-party cookie blocking
+      directUrl = 'https://lh3.googleusercontent.com/d/' + idMatch[0];
     }
     
     document.getElementById('popoverImg').src = directUrl;
