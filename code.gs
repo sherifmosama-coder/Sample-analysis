@@ -498,7 +498,9 @@ function getTankReportData(ss, startDate, endDate) {
         reading: row[10] ? parseFloat(row[10]).toFixed(2) : 'N/A',
         vv: row[13] ? (parseFloat(row[13]) * 100).toFixed(2) : 'N/A',
         // NEW: Lab Result from Column P (Index 15)
-        labResult: row[15] ? (parseFloat(row[15]) * 100).toFixed(2) + '%' : '-'
+        labResult: row[15] ? (parseFloat(row[15]) * 100).toFixed(2) + '%' : '-',
+        // FIXED: Explicitly mapping Column R (Index 17) for Tank images
+        imageUrl: row[17] ? row[17].toString() : ''
       });
     }
   });
@@ -560,7 +562,7 @@ function getAnalysisReportData(ss, startDate, endDate) {
       if (deviceTime && deviceTime >= startDate && deviceTime <= endDate) {
         filtered.push({
           date: Utilities.formatDate(deviceTime, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
-          product: 'Tank ' + serial,  // Display Tank Serial as Product Name
+          product: 'Tank ' + serial,
           method: 'الجهاز',
           deviceReading: row[10] ? parseFloat(row[10]).toFixed(2) : 'N/A',
           vv: row[13] ? (parseFloat(row[13]) * 100).toFixed(2) + '%' : 'N/A',
@@ -571,18 +573,18 @@ function getAnalysisReportData(ss, startDate, endDate) {
         });
       }
 
-      // B. Check for Lab Analysis on Tank (THIS IS THE MISSING PART)
+      // B. Check for Lab Analysis on Tank
       const labTime = row[17] ? new Date(row[17]) : null;
       if (labTime && labTime >= startDate && labTime <= endDate) {
         filtered.push({
           date: Utilities.formatDate(labTime, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
-          product: 'Tank ' + serial, // Display Tank Serial as Product Name
+          product: 'Tank ' + serial,
           method: 'معملي',
           deviceReading: 'N/A',
           vv: 'N/A',
-          labResult: row[15] ? (parseFloat(row[15]) * 100).toFixed(2) + '%' : 'N/A', // Column P (Index 15)
+          labResult: row[15] ? (parseFloat(row[15]) * 100).toFixed(2) + '%' : 'N/A',
           refNumber: serial,
-          imageUrl: '',
+          imageUrl: row[17] || '', // Column R (Index 17)
           type: 'tank'
         });
       }
@@ -613,12 +615,9 @@ function exportReportToExcel(reportType, reportData) {
     reportSheet.getRange(2, 1).setFontSize(10).setFontStyle('italic');
     
     if (reportType === 'tank') {
-      // UPDATED: Added 'نتيجة المعمل' to headers
-      const headers = [['التاريخ', 'رقم العينة', 'نوع الخامة', 'طريقة التحضير', 'العدد', 'قراءة الجهاز', 'v/v%', 'نتيجة المعمل']];
-      
-      // UPDATED: Range width increased to 8
-      reportSheet.getRange(4, 1, 1, 8).setValues(headers);
-      reportSheet.getRange(4, 1, 1, 8).setFontWeight('bold').setBackground('#3b82f6').setFontColor('#ffffff');
+      const headers = [['التاريخ', 'رقم العينة', 'نوع الخامة', 'طريقة التحضير', 'العدد', 'قراءة الجهاز', 'v/v%', 'نتيجة المعمل', 'رابط الصورة']];
+      reportSheet.getRange(4, 1, 1, 9).setValues(headers);
+      reportSheet.getRange(4, 1, 1, 9).setFontWeight('bold').setBackground('#3b82f6').setFontColor('#ffffff');
       
       if (reportData.length > 0) {
         const rows = reportData.map(function(row) {
