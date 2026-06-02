@@ -409,8 +409,8 @@
       </div>
       </div>
   </div>
-  
-  <div id="imagePreviewModal" class="modal-overlay" style="display: none;">
+
+  <div id="imagePreviewModal" class="modal-overlay" style="display: none; z-index: 9999;">
     <div class="modal-content" style="text-align:center;">
       <h3 style="margin-bottom:15px; color:var(--dark-blue); text-align:right;"><i class="fas fa-image"></i> عرض الصورة</h3>
       <img id="popoverImg" src="" style="max-width:100%; max-height:60vh; border-radius:8px; margin-bottom:15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
@@ -2067,20 +2067,20 @@
     const statsContainer = document.getElementById('summaryStats');
     
     if (currentReportTypeC === 'tank') {
-      const vvValues = data
-        .map(function(row) { return parseFloat(row.vv); })
+      const labValues = data
+        .map(function(row) { return parseFloat(row.labResult); })
         .filter(function(val) { return !isNaN(val); });
       
-      const avg = vvValues.length > 0 
-        ? (vvValues.reduce(function(a, b) { return a + b; }, 0) / vvValues.length).toFixed(2) 
+      const avg = labValues.length > 0 
+        ? (labValues.reduce(function(a, b) { return a + b; }, 0) / labValues.length).toFixed(2) 
         : '0.00';
       
-      const max = vvValues.length > 0 
-        ? Math.max.apply(null, vvValues).toFixed(2) 
+      const max = labValues.length > 0 
+        ? Math.max.apply(null, labValues).toFixed(2) 
         : '0.00';
       
-      const min = vvValues.length > 0 
-        ? Math.min.apply(null, vvValues).toFixed(2) 
+      const min = labValues.length > 0 
+        ? Math.min.apply(null, labValues).toFixed(2) 
         : '0.00';
       
       statsContainer.innerHTML = 
@@ -2092,37 +2092,24 @@
         '<div class="stat-card">' +
         '<div class="stat-icon green"><i class="fas fa-chart-line"></i></div>' +
         '<div class="stat-value">' + avg + '%</div>' +
-        '<div class="stat-label">متوسط v/v%</div>' +
+        '<div class="stat-label">متوسط المعمل</div>' +
         '</div>' +
         '<div class="stat-card">' +
         '<div class="stat-icon yellow"><i class="fas fa-arrow-up"></i></div>' +
         '<div class="stat-value">' + max + '%</div>' +
-        '<div class="stat-label">أعلى نسبة</div>' +
+        '<div class="stat-label">أعلى نتيجة</div>' +
         '</div>' +
         '<div class="stat-card">' +
         '<div class="stat-icon yellow"><i class="fas fa-arrow-down"></i></div>' +
         '<div class="stat-value">' + min + '%</div>' +
-        '<div class="stat-label">أقل نسبة</div>' +
+        '<div class="stat-label">أقل نتيجة</div>' +
         '</div>';
     } else {
-      const deviceCount = data.filter(function(row) { return row.method === 'الجهاز'; }).length;
-      const labCount = data.filter(function(row) { return row.method === 'معملي'; }).length;
-      
       statsContainer.innerHTML = 
         '<div class="stat-card">' +
         '<div class="stat-icon blue"><i class="fas fa-microscope"></i></div>' +
         '<div class="stat-value">' + data.length + '</div>' +
-        '<div class="stat-label">إجمالي التحليلات</div>' +
-        '</div>' +
-        '<div class="stat-card">' +
-        '<div class="stat-icon green"><i class="fas fa-mobile-screen-button"></i></div>' +
-        '<div class="stat-value">' + deviceCount + '</div>' +
-        '<div class="stat-label">تحليل بالجهاز</div>' +
-        '</div>' +
-        '<div class="stat-card">' +
-        '<div class="stat-icon yellow"><i class="fas fa-flask-vial"></i></div>' +
-        '<div class="stat-value">' + labCount + '</div>' +
-        '<div class="stat-label">تحليل معملي</div>' +
+        '<div class="stat-label">إجمالي التحليلات المعملية</div>' +
         '</div>';
     }
   }
@@ -2131,7 +2118,6 @@
     const thead = document.getElementById('reportTableHead');
     const tbody = document.getElementById('reportTableBody');
     
-    // UPDATED: Added header for Lab Result
     thead.innerHTML = 
       '<tr>' +
       '<th>التاريخ</th>' +
@@ -2147,9 +2133,9 @@
     
     data.forEach(function(row) {
       const tr = document.createElement('tr');
-      // Force string conversion to prevent issues
-      const cleanUrl = row.imageUrl ? row.imageUrl.toString() : '';
+      const cleanUrl = row.imageUrl ? String(row.imageUrl) : '';
       const imgCell = cleanUrl.length > 5 ? `<button class="btn btn-sm btn-secondary" onclick="openImagePreview('${cleanUrl}')"><i class="fas fa-image"></i></button>` : '-';
+      
       tr.innerHTML = 
         '<td>' + row.date + '</td>' +
         '<td><strong>' + row.serial + '</strong></td>' +
@@ -2170,7 +2156,6 @@
       '<tr>' +
       '<th>التاريخ</th>' +
       '<th>اسم المنتج</th>' +
-      '<th>طريقة التحليل</th>' +
       '<th>نتيجة المعمل</th>' +
       '<th>رقم التشغيلة</th>' +
       '<th>صورة</th>' +
@@ -2180,11 +2165,12 @@
     
     data.forEach(function(row) {
       const tr = document.createElement('tr');
-      const imgCell = row.imageUrl ? `<button class="btn btn-sm btn-secondary" onclick="openImagePreview('${row.imageUrl}')"><i class="fas fa-image"></i></button>` : '-';
+      const cleanUrl = row.imageUrl ? String(row.imageUrl) : '';
+      const imgCell = cleanUrl.length > 5 ? `<button class="btn btn-sm btn-secondary" onclick="openImagePreview('${cleanUrl}')"><i class="fas fa-image"></i></button>` : '-';
+      
       tr.innerHTML = 
         '<td>' + row.date + '</td>' +
         '<td><strong>' + row.product + '</strong></td>' +
-        '<td>' + row.method + '</td>' +
         '<td>' + (row.labResult !== 'N/A' ? row.labResult : '-') + '</td>' +
         '<td>' + row.refNumber + '</td>' +
         '<td>' + imgCell + '</td>';
