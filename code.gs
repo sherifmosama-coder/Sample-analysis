@@ -1184,28 +1184,118 @@ function endProdSession(data) {
     
     const table = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
     let rowIndex = -1;
-    for (let i = 0; i < table.length; i++) {
-      if (table[i][0] === data.sessionId) { rowIndex = i + 2; break; }
+    
+    // Find the ACTIVE row for this session (searching from bottom ensures we get the latest resumed segment)
+    for (let i = table.length - 1; i >= 0; i--) {
+      if (table[i][0] === data.sessionId && table[i][12] !== 'Completed' && table[i][12] !== 'Paused' && table[i][12] !== 'Cancelled') {
+        rowIndex = i + 2; break; 
+      }
     }
-    if (rowIndex === -1) throw new Error('لم يتم العثور على الجلسة');
+    if (rowIndex === -1) throw new Error('لم يتم العثور على الجلسة النشطة');
     
     const startTimeStr = table[rowIndex - 2][5];
     const duration = calculateDuration(startTimeStr, data.endTime);
-    const avg = data.quantity > 0 ? (duration / data.quantity).toFixed(2) : 0;
+    const tz = Session.getScriptTimeZone();
+    const timestamp = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
     
+    // Determine Action Logic
+    let statusStr = 'Completed';
+    let notePrefix = '';
+    
+    if (data.action === 'pause') {
+       statusStr = 'Paused';
+       notePrefix = '[إيقاف مؤقت] ';
+    } else if (data.action === 'cancel') {
+       statusStr = 'Cancelled';
+       notePrefix = '[إلغاء] ';
+    }
+
+    // Save Current Segment Data
     sheet.getRange(rowIndex, 7).setValue(data.endTime);
     sheet.getRange(rowIndex, 8).setValue(duration);
-    sheet.getRange(rowIndex, 9).setValue(data.quantity);
-    sheet.getRange(rowIndex, 10).setValue(avg);
-    sheet.getRange(rowIndex, 11).setValue(data.notes || '');
-    sheet.getRange(rowIndex, 12).setValue(data.imageUrl || '');
-    sheet.getRange(rowIndex, 13).setValue('Completed');
+    let existingNote = String(table[rowIndex - 2][10] || '');
+    let finalNote = existingNote + (existingNote ? '\n' : '') + notePrefix + (data.notes || '');
+    sheet.getRange(rowIndex, 11).setValue(finalNote);
+    if (data.imageUrl) sheet.getRange(rowIndex, 12).setValue(data.imageUrl);
+    sheet.getRange(rowIndex, 13).setValue(statusStr);
+    addCellNote(sheet, rowIndex, 13, `[${timestamp}] Session ${statusStr} by ${data.user}.`);
+
+    // --- PROPORTIONAL ACCRUAL ACCOUNTING (If Completed) ---
+    if (data.action === 'complete') {
+       const updatedTable = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
+       let segments = [];
+       let totalDur = 0;
+       
+       // Find ALL segments belonging to this Session ID (including Resumed ones)
+       for (let i = 0; i < updatedTable.length; i++) {
+          let stat = updatedTable[i][12];
+          if (updatedTable[i][0] === data.sessionId && (stat === 'Paused' || stat === 'Resumed' || stat === 'Completed')) {
+             segments.push(i + 2);
+             totalDur += (parseFloat(updatedTable[i][7]) || 0); // Index 7 is Duration (Col H)
+          }
+       }
+       
+       // Distribute Quantity Proportionally across all days/segments
+       const totalQty = parseFloat(data.quantity) || 0;
+       if (totalDur > 0 && totalQty > 0) {
+          segments.forEach(rIdx => {
+             let segDur = parseFloat(sheet.getRange(rIdx, 8).getValue()) || 0;
+             let proportion = segDur / totalDur;
+             // Strictly round quantity to 1 decimal place, stripping trailing zeroes
+             let segQty = parseFloat((proportion * totalQty).toFixed(1)); 
+             let segAvg = segQty > 0 ? (segDur / segQty).toFixed(2) : 0;
+             
+             sheet.getRange(rIdx, 9).setValue(segQty);
+             sheet.getRange(rIdx, 10).setValue(segAvg);
+             sheet.getRange(rIdx, 13).setValue('Completed'); // Force status to Completed
+          });
+       }
+    }
     
-    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
-    addCellNote(sheet, rowIndex, 13, `[${timestamp}] Session ended by ${data.user}.`);
-    
-    let dateStr = table[rowIndex - 2][3] instanceof Date ? Utilities.formatDate(table[rowIndex - 2][3], Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(table[rowIndex - 2][3]);
+    let dateStr = table[rowIndex - 2][3] instanceof Date ? Utilities.formatDate(table[rowIndex - 2][3], tz, 'yyyy-MM-dd') : String(table[rowIndex - 2][3]);
     syncWasteTimes(dateStr);
+    
+    return { success: true };
+  } catch (e) { throw new Error(e.message); }
+}
+
+function resumeProdSession(data) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Production_Logs');
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) throw new Error('لا توجد بيانات');
+    
+    const table = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+    let parentRow = null;
+    let parentRowIndex = -1;
+    
+    // Find the last paused row for this session to copy its data
+    for (let i = table.length - 1; i >= 0; i--) {
+      if (table[i][0] === data.sessionId && table[i][12] === 'Paused') {
+        parentRow = table[i]; 
+        parentRowIndex = i + 2;
+        break;
+      }
+    }
+    if (!parentRow) throw new Error('لم يتم العثور على تشغيلة معلقة لهذا المعرف');
+    
+    // Update the old Paused row to 'Resumed' so it disappears from the frontend queue
+    sheet.getRange(parentRowIndex, 13).setValue('Resumed');
+    
+    const tz = Session.getScriptTimeZone();
+    const newDate = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'); // Resume happens TODAY
+    
+    // Create new row segment linked to the same sessionId
+    sheet.appendRow([
+      parentRow[0], // A: sessionId
+      new Date(),   // B: Timestamp
+      data.user,    // C: User
+      newDate,      // D: Date
+      parentRow[4], // E: Product
+      data.resumeTime, // F: Start Time
+      '', '', '', '', '', '', 'Active' // Force status to Active
+    ]);
     
     return { success: true };
   } catch (e) { throw new Error(e.message); }
@@ -1218,8 +1308,14 @@ function getTodayProdSessions(targetDateStr) {
     if (!sheet || sheet.getLastRow() < 2) return [];
     
     const todayStr = targetDateStr || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
-    const notesData = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getNotes();
+    
+    // Auto-Sync Waste Times BEFORE fetching the data to ensure the dashboard timeline is 100% accurate on load
+    syncWasteTimes(todayStr);
+    
+    // Re-fetch the Last Row because syncWasteTimes might have added or deleted rows!
+    const finalLastRow = sheet.getLastRow();
+    const data = finalLastRow < 2 ? [] : sheet.getRange(2, 1, finalLastRow - 1, 13).getValues();
+    const notesData = finalLastRow < 2 ? [] : sheet.getRange(2, 1, finalLastRow - 1, 13).getNotes();
     
     const filtered = [];
     for (let i = 0; i < data.length; i++) {
@@ -1260,9 +1356,12 @@ function editProdSession(data) {
     const sheet = ss.getSheetByName('Production_Logs');
     const lastRow = sheet.getLastRow();
     
-    const table = sheet.getRange(2, 1, lastRow - 1, 11).getValues();
+    // Grab up to column 13 (M) so we can check Status for the ripple effect
+    const table = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
     let rowIndex = -1; let oldData = [];
-    for (let i = 0; i < table.length; i++) {
+    
+    // Search backward so the backend edits the exact same recent segment the frontend showed
+    for (let i = table.length - 1; i >= 0; i--) {
       if (table[i][0] === data.sessionId) { rowIndex = i + 2; oldData = table[i]; break; }
     }
     if (rowIndex === -1) throw new Error('Session not found');
@@ -1270,6 +1369,7 @@ function editProdSession(data) {
     const oldStartTime = oldData[5] instanceof Date ? Utilities.formatDate(oldData[5], Session.getScriptTimeZone(), 'HH:mm') : String(oldData[5] || '');
     const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
 
+    // 1. SIMPLE ACTIVE EDIT
     if (data.isActiveEdit) {
       sheet.getRange(rowIndex, 6).setValue(data.newStartTime);
       if (oldStartTime !== data.newStartTime) {
@@ -1279,38 +1379,60 @@ function editProdSession(data) {
     }
     
     const oldEndTime = oldData[6] instanceof Date ? Utilities.formatDate(oldData[6], Session.getScriptTimeZone(), 'HH:mm') : String(oldData[6] || '');
-    const oldQty = oldData[8];
     const oldNotes = oldData[10];
     
-    const duration = calculateDuration(data.newStartTime, data.newEndTime);
-    const newAvg = data.newQuantity > 0 ? (duration / data.newQuantity).toFixed(2) : 0;
+    // 2. RECALCULATE DURATION FOR THE EDITED ROW
+    const newDuration = calculateDuration(data.newStartTime, data.newEndTime);
     
     sheet.getRange(rowIndex, 6).setValue(data.newStartTime);
     sheet.getRange(rowIndex, 7).setValue(data.newEndTime);
-    sheet.getRange(rowIndex, 8).setValue(duration);
-    sheet.getRange(rowIndex, 9).setValue(data.newQuantity);
-    sheet.getRange(rowIndex, 10).setValue(newAvg);
+    sheet.getRange(rowIndex, 8).setValue(newDuration);
     sheet.getRange(rowIndex, 11).setValue(data.newNotes || '');
-    if (data.newImageUrl) {
-      sheet.getRange(rowIndex, 12).setValue(data.newImageUrl);
+    if (data.newImageUrl) sheet.getRange(rowIndex, 12).setValue(data.newImageUrl);
+    
+    if (oldStartTime !== data.newStartTime) addCellNote(sheet, rowIndex, 6, `[${timestamp}] ${data.user}: تعديل وقت البدء إلى ${data.newStartTime}`);
+    if (oldEndTime !== data.newEndTime) addCellNote(sheet, rowIndex, 7, `[${timestamp}] ${data.user}: تعديل وقت الإنهاء إلى ${data.newEndTime}`);
+    if (String(oldNotes) !== String(data.newNotes)) addCellNote(sheet, rowIndex, 11, `[${timestamp}] ${data.user}: تم تعديل الملاحظات`);
+    if (data.newImageUrl) addCellNote(sheet, rowIndex, 12, `[${timestamp}] ${data.user}: تم تحديث الصورة`);
+    
+    // 3. RIPPLE EFFECT: PROPORTIONAL REBALANCING (Time & Quantity)
+    // Only apply math if it's a real product (not Waste/Break) and global quantity was sent
+    if (data.newTotalQuantity !== undefined && oldData[4] !== 'وقت مهدر' && oldData[4] !== 'وقت الراحة') {
+        let segments = [];
+        let totalBatchDur = 0;
+        
+        // Scan ALL rows to find every segment of this specific batch
+        for (let i = 0; i < table.length; i++) {
+            let stat = table[i][12];
+            if (table[i][0] === data.sessionId && (stat === 'Paused' || stat === 'Resumed' || stat === 'Completed')) {
+                segments.push(i + 2);
+                // If it's the row we just edited, use the fresh newDuration. Otherwise, use table duration.
+                let segDur = (i + 2 === rowIndex) ? newDuration : (parseFloat(table[i][7]) || 0);
+                totalBatchDur += segDur;
+            }
+        }
+        
+        let globalQty = parseFloat(data.newTotalQuantity) || 0;
+        
+        // Split the new Global Quantity proportionally based on the updated durations
+        if (totalBatchDur > 0 && globalQty > 0) {
+            segments.forEach(rIdx => {
+                let sDur = (rIdx === rowIndex) ? newDuration : (parseFloat(sheet.getRange(rIdx, 8).getValue()) || 0);
+                let proportion = sDur / totalBatchDur;
+                
+                // Strict 1-Decimal Rounding
+                let sQty = parseFloat((proportion * globalQty).toFixed(1));
+                let sAvg = sQty > 0 ? (sDur / sQty).toFixed(2) : 0;
+                
+                sheet.getRange(rIdx, 9).setValue(sQty);
+                sheet.getRange(rIdx, 10).setValue(sAvg);
+            });
+            
+            addCellNote(sheet, rowIndex, 9, `[${timestamp}] ${data.user}: حفظ/إعادة توزيع إجمالي كمية الدفعة (${globalQty})`);
+        }
     }
     
-    if (oldStartTime !== data.newStartTime) {
-      addCellNote(sheet, rowIndex, 6, `[${timestamp}] ${data.user}: تعديل وقت البدء من ${oldStartTime} إلى ${data.newStartTime}`);
-    }
-    if (oldEndTime !== data.newEndTime) {
-      addCellNote(sheet, rowIndex, 7, `[${timestamp}] ${data.user}: تعديل وقت الإنهاء من ${oldEndTime} إلى ${data.newEndTime}`);
-    }
-    if (String(oldQty) !== String(data.newQuantity)) {
-      addCellNote(sheet, rowIndex, 9, `[${timestamp}] ${data.user}: تعديل الكمية من ${oldQty} إلى ${data.newQuantity}`);
-    }
-    if (String(oldNotes) !== String(data.newNotes)) {
-      addCellNote(sheet, rowIndex, 11, `[${timestamp}] ${data.user}: تم تعديل الملاحظات`);
-    }
-    if (data.newImageUrl) {
-      addCellNote(sheet, rowIndex, 12, `[${timestamp}] ${data.user}: تم تحديث الصورة`);
-    }
-    
+    // 4. SYNC WASTE TIMELINE
     let dateStr = oldData[3] instanceof Date ? Utilities.formatDate(oldData[3], Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(oldData[3]);
     syncWasteTimes(dateStr);
     
@@ -1365,7 +1487,8 @@ function endBreakSession(data) {
     if (lastRow < 2) throw new Error('لا توجد بيانات');
     const table = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
     let rowIndex = -1;
-    for (let i = 0; i < table.length; i++) {
+    // Search backward to guarantee we grab the active segment
+    for (let i = table.length - 1; i >= 0; i--) {
       if (table[i][0] === data.sessionId) { rowIndex = i + 2; break; }
     }
     if (rowIndex === -1) throw new Error('لم يتم العثور على الجلسة');
@@ -1373,12 +1496,22 @@ function endBreakSession(data) {
     const startTimeStr = table[rowIndex - 2][5];
     const duration = calculateDuration(startTimeStr, data.endTime);
     
+    let statusStr = 'Completed';
+    if (data.action === 'cancel') statusStr = 'Cancelled';
+    
     sheet.getRange(rowIndex, 7).setValue(data.endTime);
     sheet.getRange(rowIndex, 8).setValue(duration);
-    sheet.getRange(rowIndex, 13).setValue('Completed');
+    
+    if (data.action === 'cancel' && data.notes) {
+       let existingNote = String(table[rowIndex - 2][10] || '');
+       let finalNote = existingNote + (existingNote ? '\n' : '') + '[إلغاء الراحة] ' + data.notes;
+       sheet.getRange(rowIndex, 11).setValue(finalNote);
+    }
+    
+    sheet.getRange(rowIndex, 13).setValue(statusStr);
     
     const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
-    addCellNote(sheet, rowIndex, 13, `[${timestamp}] Break ended by ${data.user}.`);
+    addCellNote(sheet, rowIndex, 13, `[${timestamp}] Break ${statusStr} by ${data.user}.`);
     
     let dateStr = table[rowIndex - 2][3] instanceof Date ? Utilities.formatDate(table[rowIndex - 2][3], Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(table[rowIndex - 2][3]);
     syncWasteTimes(dateStr);
@@ -1415,7 +1548,10 @@ function syncWasteTimes(dateStr) {
 
   data.forEach(function(r, i) {
     let rowDate = r[3] instanceof Date ? Utilities.formatDate(r[3], Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(r[3]||'').trim();
-    if (rowDate === dateStr) {
+    let status = String(r[12]||'').trim();
+    
+    // CRITICAL: Completely ignore Cancelled sessions so they correctly turn into Waste time
+    if (rowDate === dateStr && status !== 'Cancelled' && status !== 'ملغي') {
       let type = (r[4] === 'وقت مهدر') ? 'Waste' : 'Busy';
       
       // Safely extract HH:mm regardless of how Google Sheets formatted the cell
@@ -1645,6 +1781,32 @@ function setupDailyTrigger() {
 
 // --- EXECUTIVE REPORTING ENGINE (PORTAL C) ---
 
+function getProductionDateRange() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Production_Logs');
+  if (!sheet) return { min: '', max: '' };
+
+  // Fetch Dates (Col D/Index 3) and Status (Col M/Index 12)
+  const data = sheet.getRange(2, 4, sheet.getLastRow() - 1, 10).getValues(); 
+  const tz = Session.getScriptTimeZone();
+  let minDate = null;
+  let maxDate = null;
+
+  data.forEach(r => {
+    if (r[9] !== 'Completed') return; // Only count productive days
+    let dObj = new Date(r[0]);
+    if (isNaN(dObj.getTime())) return;
+
+    if (!minDate || dObj < minDate) minDate = dObj;
+    if (!maxDate || dObj > maxDate) maxDate = dObj;
+  });
+
+  return {
+    min: minDate ? Utilities.formatDate(minDate, tz, 'yyyy-MM-dd') : '',
+    max: maxDate ? Utilities.formatDate(maxDate, tz, 'yyyy-MM-dd') : ''
+  };
+}
+
 function getProductionReportData(filters) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Production_Logs');
@@ -1656,7 +1818,6 @@ function getProductionReportData(filters) {
   let kpis = { prod: 0, break: 0, waste: 0, overtime: 0 };
   let prodMap = {}; 
   let trendMap = {}; 
-  let usersSet = new Set();
   let productsSet = new Set();
   let dayGroups = {};
 
@@ -1665,15 +1826,12 @@ function getProductionReportData(filters) {
     if (r[12] !== 'Completed') return; // Only process finished sessions
     
     let dateStr = r[3] instanceof Date ? Utilities.formatDate(r[3], tz, 'yyyy-MM-dd') : String(r[3]).trim();
-    let user = r[2];
     let product = r[4];
 
-    usersSet.add(user);
     if (product !== 'وقت مهدر' && product !== 'وقت الراحة') productsSet.add(product);
 
     if (filters.startDate && dateStr < filters.startDate) return;
     if (filters.endDate && dateStr > filters.endDate) return;
-    if (filters.user && filters.user !== 'الكل' && user !== filters.user) return;
     
     if (filters.product && filters.product !== 'الكل') {
        if (product !== filters.product && product !== 'وقت مهدر' && product !== 'وقت الراحة') return;
@@ -1702,6 +1860,9 @@ function getProductionReportData(filters) {
       }
     });
 
+    let prodSessions = [];
+    let minuteMap = new Array(1440).fill(null).map(() => []); 
+
     dayRows.forEach(r => {
       let sM = timeToMins(r[5] instanceof Date ? Utilities.formatDate(r[5], tz, 'HH:mm') : String(r[5]));
       let eM = timeToMins(r[6] instanceof Date ? Utilities.formatDate(r[6], tz, 'HH:mm') : String(r[6]));
@@ -1717,18 +1878,60 @@ function getProductionReportData(filters) {
       } else if (product === 'وقت الراحة') {
          dBreak += dur; kpis.break += dur;
       } else {
-         let netDur = dur;
-         // Subtract overlapping breaks
-         dayBreaks.forEach(b => {
-             let overlapStart = Math.max(sM, b.start);
-             let overlapEnd = Math.min(absEM, b.end);
-             if (overlapStart < overlapEnd) netDur -= (overlapEnd - overlapStart);
+         prodSessions.push({
+            product: product,
+            start: sM,
+            end: absEM,
+            qty: parseFloat(r[8]) || 0,
+            allocatedDur: 0
          });
-         dProd += netDur; kpis.prod += netDur;
-         if (!prodMap[product]) prodMap[product] = { qty: 0, dur: 0 };
-         prodMap[product].qty += (parseFloat(r[8]) || 0);
-         prodMap[product].dur += netDur;
       }
+    });
+
+    // Build the minute map for valid production times
+    prodSessions.forEach((session, idx) => {
+       for (let m = session.start; m < session.end; m++) {
+          let minuteOfDay = m % 1440;
+          
+          // Check if this minute overlaps with ANY break (ensuring breaks don't count towards production time)
+          let isBreak = false;
+          for (let b of dayBreaks) {
+             if (m >= b.start && m < b.end) {
+                isBreak = true; break;
+             }
+          }
+          
+          if (!isBreak) {
+             minuteMap[minuteOfDay].push(idx);
+          }
+       }
+    });
+
+    // Calculate fractional durations and absolute factory production time
+    for (let m = 0; m < 1440; m++) {
+       let activeCount = minuteMap[m].length;
+       if (activeCount > 0) {
+          dProd += 1; // Exactly 1 minute of net factory uptime
+          kpis.prod += 1;
+          
+          // Dilute the minute equally across all products running at that exact time
+          let fraction = 1 / activeCount;
+          minuteMap[m].forEach(idx => {
+             prodSessions[idx].allocatedDur += fraction;
+          });
+       }
+    }
+
+    // Aggregate the perfectly balanced times back into the product maps
+    prodSessions.forEach(session => {
+       let p = session.product;
+       if (!prodMap[p]) prodMap[p] = { qty: 0, dur: 0, breakdown: {} };
+       prodMap[p].qty += session.qty;
+       prodMap[p].dur += session.allocatedDur;
+       
+       if (!prodMap[p].breakdown[d]) prodMap[p].breakdown[d] = { qty: 0, dur: 0 };
+       prodMap[p].breakdown[d].qty += session.qty;
+       prodMap[p].breakdown[d].dur += session.allocatedDur;
     });
 
     let shiftStart = (actualStart < 480) ? actualStart : 480;
@@ -1738,6 +1941,13 @@ function getProductionReportData(filters) {
     let compMins = Math.min(deficit, extraMins);
     let overtimeMins = extraMins - compMins;
 
+    // RULE: If NO actual production happened, ignore waste and overtime for this day
+    if (dProd === 0) {
+       kpis.waste -= dWaste; // Remove this day's waste from the global KPI tally
+       dWaste = 0;           // Zero it out for the daily chart trend
+       overtimeMins = 0;     // Zero out daily overtime
+    }
+
     kpis.overtime += overtimeMins;
     trendMap[d] = { date: d, prod: dProd, waste: dWaste, break: dBreak, ot: overtimeMins };
   }
@@ -1746,14 +1956,13 @@ function getProductionReportData(filters) {
   let productsArray = Object.keys(prodMap).map(p => {
      let d = prodMap[p];
      let avg = d.qty > 0 ? (d.dur / d.qty).toFixed(2) : 0;
-     return { name: p, qty: d.qty, dur: d.dur, avg: avg };
+     return { name: p, qty: d.qty, dur: d.dur, avg: avg, breakdown: d.breakdown };
   }).sort((a,b) => b.dur - a.dur);
 
   return {
      kpis: kpis,
      trend: trendArray,
      products: productsArray,
-     users: Array.from(usersSet).sort(),
      productNames: Array.from(productsSet).sort()
   };
 }
