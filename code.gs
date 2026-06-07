@@ -643,78 +643,105 @@ function getTodayTanksDashboardData() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tankSheet = ss.getSheetByName('Tank');
-    if (!tankSheet) {
-      return getEmptyTanksDashboard();
-    }
+    if (!tankSheet || tankSheet.getLastRow() < 2) return getEmptyTanksDashboard();
 
-    const lastRow = tankSheet.getLastRow();
-    if (lastRow < 2) {
-      return getEmptyTanksDashboard();
-    }
-
+    const tz = Session.getScriptTimeZone();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const data = tankSheet.getRange(2, 1, lastRow - 1, 14).getValues();
+    const data = tankSheet.getRange(2, 1, tankSheet.getLastRow() - 1, 18).getValues();
 
-    const todayData = [];
+    let todayData = [];
     data.forEach(function (row) {
       const timestamp = new Date(row[0]);
       if (timestamp >= today && timestamp < tomorrow) {
-        todayData.push({
-          timestamp: timestamp,
-          serial: row[12],
-          vv: row[13]
-        });
+        let serial = parseInt(row[12]);
+        if (!isNaN(serial)) {
+          todayData.push({
+            timestamp: timestamp,
+            serial: serial,
+            labResult: row[15] !== '' ? parseFloat(row[15]) * 100 : null
+          });
+        }
       }
     });
 
-    if (todayData.length === 0) {
-      return getEmptyTanksDashboard();
-    }
-
-    const serials = todayData.map(function (item) { return item.serial; }).filter(function (s) { return s !== '' && !isNaN(s); });
-    const vvValues = todayData.map(function (item) { return parseFloat(item.vv) * 100; }).filter(function (v) { return !isNaN(v); });
-
+    const serials = todayData.map(function(i) { return i.serial; });
     const startSerial = serials.length > 0 ? Math.min.apply(null, serials) : 0;
     const endSerial = serials.length > 0 ? Math.max.apply(null, serials) : 0;
 
-    let highest = 0;
-    let lowest = 0;
-    let highestSerial = 0;
-    let lowestSerial = 0;
+    const concData = todayData.filter(function(i) { return i.labResult !== null; });
+    let avg = 0, highest = 0, lowest = 0;
+    let highestSerials = [], lowestSerials = [];
 
-    if (vvValues.length > 0) {
-      highest = Math.max.apply(null, vvValues);
-      lowest = Math.min.apply(null, vvValues);
+    if (concData.length > 0) {
+      let sum = 0;
+      concData.forEach(function(i) { sum += i.labResult; });
+      avg = sum / concData.length;
+      
+      const vals = concData.map(function(i) { return i.labResult; });
+      highest = Math.max.apply(null, vals);
+      lowest = Math.min.apply(null, vals);
 
-      todayData.forEach(function (item) {
-        const vvPercent = parseFloat(item.vv) * 100;
-        if (vvPercent === highest) {
-          highestSerial = item.serial;
-        }
-        if (vvPercent === lowest) {
-          lowestSerial = item.serial;
-        }
-      });
+      highestSerials = concData.filter(function(i) { return i.labResult === highest; }).map(function(i) { return i.serial; });
+      lowestSerials = concData.filter(function(i) { return i.labResult === lowest; }).map(function(i) { return i.serial; });
     }
+
+    // Fetch Handover Data safely
+    let handover = {};
+    let prevShiftLastTank = {};
+    try {
+      const hoSheet = ss.getSheetByName("Shift_Handovers");
+      if (hoSheet && hoSheet.getLastRow() >= 2) {
+         const hoRow = hoSheet.getRange(hoSheet.getLastRow(), 1, 1, 4).getValues()[0];
+         handover = {
+            time: String(hoRow[0]),
+            lastTankNum: parseInt(hoRow[1]),
+            expectedNext: parseInt(hoRow[2]),
+            image: String(hoRow[3])
+         };
+         
+         // Scan historical data for the actual last tank to get its real timestamp and image
+         for(let i = data.length - 1; i >= 0; i--) {
+            if(parseInt(data[i][12]) === handover.lastTankNum) {
+               prevShiftLastTank = {
+                  time: data[i][0] ? Utilities.formatDate(new Date(data[i][0]), tz, 'yyyy-MM-dd HH:mm') : '',
+                  image: String(data[i][17] || '')
+               };
+               break;
+            }
+         }
+      }
+    } catch(e) {}
 
     return {
       totalCount: todayData.length,
       startSerial: startSerial,
       endSerial: endSerial,
-      highest: highest.toFixed(2),
-      lowest: lowest.toFixed(2),
-      highestSerial: highestSerial,
-      lowestSerial: lowestSerial
+      avgConc: avg.toFixed(2),
+      highestConc: highest.toFixed(2),
+      lowestConc: lowest.toFixed(2),
+      highestSerialUnique: highestSerials.length === 1 ? highestSerials[0] : null,
+      lowestSerialUnique: lowestSerials.length === 1 ? lowestSerials[0] : null,
+      hasConcentrationData: concData.length > 0,
+      handover: handover,
+      prevShiftLastTank: prevShiftLastTank
     };
-
   } catch (error) {
-    Logger.log('Error in getTodayTanksDashboardData: ' + error.message);
     return getEmptyTanksDashboard();
   }
+}
+
+function getEmptyTanksDashboard() {
+  return {
+    totalCount: 0, startSerial: 0, endSerial: 0,
+    avgConc: '0.00', highestConc: '0.00', lowestConc: '0.00',
+    highestSerialUnique: null, lowestSerialUnique: null,
+    hasConcentrationData: false,
+    handover: {}, prevShiftLastTank: {}
+  };
 }
 function getTodayAnalysisDashboardData() {
   try {
@@ -855,17 +882,7 @@ function getTodayAnalysisDashboardData() {
     return getEmptyAnalysisDashboard();
   }
 }
-function getEmptyTanksDashboard() {
-  return {
-    totalCount: 0,
-    startSerial: 0,
-    endSerial: 0,
-    highest: '0.00',
-    lowest: '0.00',
-    highestSerial: 0,
-    lowestSerial: 0
-  };
-}
+
 function getEmptyAnalysisDashboard() {
   return {
     deviceTotal: 0,
@@ -1949,4 +1966,94 @@ function syncPerformanceData(dateStr, triggerSource) {
   if (newRows.length > 0) {
     sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 11).setValues(newRows);
   }
+}
+
+// --- END OF SHIFT (HANDOVER) ENGINE ---
+
+function getLastTankNumber() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    // Strictly target the active 'Tank' sheet
+    const tankSheet = ss.getSheetByName('Tank');
+    if (!tankSheet || tankSheet.getLastRow() < 2) return 0;
+
+    // Fetch exclusively Column M (Column Index 13)
+    const data = tankSheet.getRange(2, 13, tankSheet.getLastRow() - 1, 1).getValues();
+    
+    let maxSerial = 0;
+    // Scan all rows to find the absolute highest registered serial number
+    for (let i = 0; i < data.length; i++) {
+      let val = parseInt(data[i][0]);
+      if (!isNaN(val) && val > maxSerial) {
+        maxSerial = val;
+      }
+    }
+    return maxSerial;
+  } catch(e) {
+    return 0;
+  }
+}
+
+function processEndOfShift(inputNumberStr, imageBase64) {
+  try {
+    const lastTank = getLastTankNumber();
+    const expected = lastTank + 1;
+    const input = parseInt(inputNumberStr);
+
+    if (isNaN(input)) {
+      return { success: false, message: "الرقم المدخل غير صالح. يرجى إدخال أرقام فقط." };
+    }
+
+    // Sequence Verification Logic (Arabic Only)
+    if (input > expected) {
+      return { success: false, message: `الرقم المدخل (${input}) أكبر من المتوقع (${expected}).\n\nيبدو أن هناك ملصق مفقود! يرجى المراجعة.` };
+    } else if (input < expected) {
+      return { success: false, message: `الرقم المدخل (${input}) أصغر من المتوقع (${expected}).\n\nيبدو أن هناك تانك لم يتم تسجيله في النظام أو تم تكرار الرقم! يرجى المراجعة.` };
+    }
+
+    // Exact Match Success - Save Data
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let handoverSheet = ss.getSheetByName("Shift_Handovers");
+    if (!handoverSheet) {
+      handoverSheet = ss.insertSheet("Shift_Handovers");
+      handoverSheet.appendRow(["وقت التسليم", "آخر تانك", "الرقم القادم المتوقع", "رابط الصورة"]);
+      handoverSheet.getRange(1, 1, 1, 4).setFontWeight("bold").setBackground("#f3f4f6");
+    }
+
+    // Save Image to Drive
+    let imageUrl = "";
+    if (imageBase64) {
+      const folderName = "Shift_Handovers_Images";
+      let folders = DriveApp.getFoldersByName(folderName);
+      let folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+      
+      let base64Data = imageBase64.split(',')[1];
+      let blob = Utilities.newBlob(Utilities.base64Decode(base64Data), 'image/jpeg', 'Handover_Next_' + expected + '_' + new Date().getTime() + '.jpg');
+      let file = folder.createFile(blob);
+      imageUrl = file.getUrl();
+    }
+
+    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    handoverSheet.appendRow([timestamp, lastTank, expected, imageUrl]);
+
+    return { success: true, message: "تطابق التسلسل! تم إنهاء الوردية وتسليم العهدة بنجاح." };
+  } catch(e) {
+    return { success: false, message: "خطأ في النظام: " + e.message };
+  }
+}
+
+function getLatestHandover() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ws = ss.getSheetByName("Shift_Handovers");
+    if (!ws || ws.getLastRow() < 2) return null;
+    
+    // Get the absolute last row saved
+    const lastRow = ws.getRange(ws.getLastRow(), 1, 1, 4).getValues()[0];
+    return {
+      time: String(lastRow[0]),
+      number: lastRow[2], 
+      image: String(lastRow[3])
+    };
+  } catch(e) { return null; }
 }
