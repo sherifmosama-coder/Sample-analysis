@@ -1,28 +1,24 @@
 // Complete CODE.gs - With External Spreadsheet Copy for Portal A
-
 function doGet() {
   return HtmlService.createTemplateFromFile('INDEX')
     .evaluate()
     .setTitle('نظام إدارة العينات')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
 }
-
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
-
 // Check password
 function checkPassword(portal, password) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const systemSheet = ss.getSheetByName('System data');
-    
     if (!systemSheet) {
       throw new Error('Sheet "System data" not found');
     }
-    
+
     let correctPassword = '';
-    
+
     if (portal === 'A') {
       correctPassword = systemSheet.getRange('A2').getValue().toString();
     } else if (portal === 'B') {
@@ -30,126 +26,113 @@ function checkPassword(portal, password) {
     } else if (portal === 'TDS') {
       correctPassword = systemSheet.getRange('C2').getValue().toString();
     }
-    
+
     return password === correctPassword;
   } catch (error) {
     throw new Error('Error checking password: ' + error.message);
   }
 }
-
 // Get material options from index sheet
 function getMaterialOptions() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const indexSheet = ss.getSheetByName('index');
-    
     if (!indexSheet) {
       throw new Error('Sheet "index" not found');
     }
-    
+
     const options = indexSheet.getRange('A2:A5').getValues();
-    return options.map(function(row) { return row[0]; }).filter(function(val) { return val !== ''; });
+    return options.map(function (row) { return row[0]; }).filter(function (val) { return val !== ''; });
   } catch (error) {
     throw new Error('Error loading options: ' + error.message);
   }
 }
-
 // Get product names for Portal B
 function getProductNames() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const indexSheet = ss.getSheetByName('index');
-    
     if (!indexSheet) {
       throw new Error('Sheet "index" not found');
     }
-    
+
     const lastRow = indexSheet.getLastRow();
     if (lastRow < 2) return [];
-    
+
     const products = indexSheet.getRange('B2:B' + lastRow).getValues();
-    return products.map(function(row) { return row[0]; }).filter(function(val) { return val !== ''; });
+    return products.map(function (row) { return row[0]; }).filter(function (val) { return val !== ''; });
   } catch (error) {
     throw new Error('Error loading products: ' + error.message);
   }
 }
-
 // [UPDATED] Get tank serial numbers (Merges both sheets)
 function getTankSerialNumbers() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let allSerials = [];
-    
     // Get from NEW sheet
     const newTankSheet = ss.getSheetByName('Tank');
     if (newTankSheet) {
       allSerials = allSerials.concat(getSheetSerials(newTankSheet));
     }
-    
+
     // Get from OLD sheet
     const oldTankSheet = ss.getSheetByName('Tank_2025');
     if (oldTankSheet) {
       allSerials = allSerials.concat(getSheetSerials(oldTankSheet));
     }
-    
+
     // Remove duplicates and sort descending
     // Note: If Serial #1 exists in both, this will only show one #1. 
     // The system prioritizes the NEW sheet (2026) in getTankInfo.
     const uniqueSerials = [...new Set(allSerials)];
-    uniqueSerials.sort(function(a, b) { return b - a; });
-    
+    uniqueSerials.sort(function (a, b) { return b - a; });
+
     return uniqueSerials;
   } catch (error) {
     throw new Error('Error loading tank serials: ' + error.message);
   }
 }
-
 function getSheetSerials(sheet) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
   const serials = sheet.getRange(2, 13, lastRow - 1, 1).getValues();
-  return serials.map(function(row) { return row[0]; })
-                .filter(function(val) { return val !== '' && !isNaN(val); });
+  return serials.map(function (row) { return row[0]; })
+    .filter(function (val) { return val !== '' && !isNaN(val); });
 }
-
 // [UPDATED] Get tank info by serial number (Searches 2026 then 2025)
 function getTankInfo(serialNumber) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    
     // 1. Try to find in the NEW sheet first
     const newTankSheet = ss.getSheetByName('Tank');
     if (newTankSheet) {
       const result = searchSheetForTank(newTankSheet, serialNumber);
       if (result) return result;
     }
-    
+
     // 2. If not found, try the OLD sheet
     const oldTankSheet = ss.getSheetByName('Tank_2025');
     if (oldTankSheet) {
       const result = searchSheetForTank(oldTankSheet, serialNumber);
       if (result) return result;
     }
-    
+
     throw new Error('Serial number not found in current or archived records');
   } catch (error) {
     throw new Error('Error loading tank info: ' + error.message);
   }
 }
-
 // Helper function to avoid duplicate code
 function searchSheetForTank(sheet, serialNumber) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return null;
-  
   // Column 13 contains Serial Numbers (Index 12)
   const serials = sheet.getRange(2, 13, lastRow - 1, 1).getValues();
-  
   for (let i = 0; i < serials.length; i++) {
     if (serials[i][0] == serialNumber) {
       const rowNum = i + 2;
       const data = sheet.getRange(rowNum, 1, 1, 18).getValues()[0];
-      
       return {
         timestamp: data[0] ? Utilities.formatDate(new Date(data[0]), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss') : '',
         deviceReading1: data[10] || '',
@@ -164,7 +147,6 @@ function searchSheetForTank(sheet, serialNumber) {
   }
   return null;
 }
-
 // Save Tank Analysis (Concurrent Workflow Upsert)
 function saveTankAnalysis(data) {
   try {
@@ -181,7 +163,6 @@ function saveTankAnalysis(data) {
       tankSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
       tankSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
     }
-
     const lastRow = tankSheet.getLastRow();
     let rowIndex = -1;
 
@@ -209,7 +190,7 @@ function saveTankAnalysis(data) {
       row[15] = labResStr; // Col P
       row[16] = timestampStr; // Col Q
       if (data.imageUrl) row[17] = data.imageUrl; // Col R
-      
+
       tankSheet.appendRow(row);
     }
 
@@ -218,20 +199,18 @@ function saveTankAnalysis(data) {
     throw new Error('Error updating tank: ' + error.message);
   }
 }
-
 // Save product analysis (Portal B - Product path)
 function saveProductAnalysis(data) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let analysisSheet = ss.getSheetByName('Analysis');
-    
     if (!analysisSheet) {
       analysisSheet = ss.insertSheet('Analysis');
       const headers = ['Timestamp', 'Product Name', 'Analysis Method', 'Device Reading', 'v/v%', 'Lab Result', 'Reference Number', 'Image URL'];
       analysisSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
       analysisSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
     }
-    
+
     const row = new Array(8).fill('');
     row[0] = new Date();
     row[1] = data.productName;
@@ -239,28 +218,26 @@ function saveProductAnalysis(data) {
     row[5] = data.labResult / 100;
     row[6] = data.referenceNumber;
     row[7] = data.imageUrl || '';
-    
+
     analysisSheet.appendRow(row);
     return { success: true, message: 'تم حفظ البيانات بنجاح' };
   } catch (error) {
     throw new Error('Error saving analysis: ' + error.message);
   }
 }
-
 // Upload image to Google Drive
 function uploadImageToDrive(imageData, fileName) {
   try {
     const folderId = '1L3c3hS4fBdQ6Z6eFXOzzplkmV6pXkOei';
     const folder = DriveApp.getFolderById(folderId);
-    
     const contentType = imageData.substring(5, imageData.indexOf(';'));
     const bytes = Utilities.base64Decode(imageData.substr(imageData.indexOf('base64,') + 7));
     const blob = Utilities.newBlob(bytes, contentType, fileName);
-    
+
     const file = folder.createFile(blob);
-    
+
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    
+
     return {
       success: true,
       url: file.getUrl(),
@@ -270,7 +247,6 @@ function uploadImageToDrive(imageData, fileName) {
     throw new Error('Error uploading image: ' + error.message);
   }
 }
-
 // Delete image from Google Drive
 function deleteImageFromDrive(fileId) {
   try {
@@ -281,25 +257,23 @@ function deleteImageFromDrive(fileId) {
     throw new Error('Error deleting image: ' + error.message);
   }
 }
-
 // Validate serial number (Concurrent Context-Aware Workflow)
 function validateSerialNumber(serialNumber, portal) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tankSheet = ss.getSheetByName('Tank');
-    
     if (!tankSheet || tankSheet.getLastRow() < 2) {
       if (serialNumber === 1) {
-         return { 
-           valid: true, 
-           message: portal === 'B' ? "يرجي الابلاغ بالنتيجة للتجهيز.. جاهز لإدخال نتيجة التحليل." : "لم يتم التحليل بعد، يرجي مراجعة المعمل قبل الارسال", 
-           type: portal === 'B' ? 'success' : 'warning' 
-         };
+        return {
+          valid: true,
+          message: portal === 'B' ? "يرجي الابلاغ بالنتيجة للتجهيز.. جاهز لإدخال نتيجة التحليل." : "لم يتم التحليل بعد، يرجي مراجعة المعمل قبل الارسال",
+          type: portal === 'B' ? 'success' : 'warning'
+        };
       } else {
-         return { valid: false, message: 'رقم التانك يجب أن يبدأ من 1', type: 'error' };
+        return { valid: false, message: 'رقم التانك يجب أن يبدأ من 1', type: 'error' };
       }
     }
-    
+
     const data = tankSheet.getRange(2, 1, tankSheet.getLastRow() - 1, 18).getValues();
     let maxSerial = 0;
     let existingRow = null;
@@ -336,9 +310,9 @@ function validateSerialNumber(serialNumber, portal) {
 
     if (serialNumber === maxSerial + 1) {
       if (portal === 'B') { // Case 6
-         return { valid: true, message: 'يرجي الابلاغ بالنتيجة للتجهيز.. جاهز لإدخال نتيجة التحليل.', type: 'success' };
+        return { valid: true, message: 'يرجي الابلاغ بالنتيجة للتجهيز.. جاهز لإدخال نتيجة التحليل.', type: 'success' };
       } else { // Case 7
-         return { valid: true, message: 'لم يتم التحليل بعد، يرجي مراجعة المعمل قبل الارسال', type: 'warning' };
+        return { valid: true, message: 'لم يتم التحليل بعد، يرجي مراجعة المعمل قبل الارسال', type: 'warning' };
       }
     } else {
       return { valid: false, message: 'رقم التانك يجب أن يكون ' + (maxSerial + 1), type: 'error' };
@@ -347,7 +321,6 @@ function validateSerialNumber(serialNumber, portal) {
     throw new Error('Error validating serial: ' + error.message);
   }
 }
-
 // Save Portal A data (Concurrent Workflow Upsert)
 function savePortalAData(data) {
   try {
@@ -364,8 +337,7 @@ function savePortalAData(data) {
       tankSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
       tankSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
     }
-
-    const quantityCol = data.materialIndex + 4; 
+    const quantityCol = data.materialIndex + 4;
     let rowIndex = -1;
 
     if (!data.isBlossomOrRose) {
@@ -381,7 +353,7 @@ function savePortalAData(data) {
     }
 
     const timestampStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
-    
+
     if (rowIndex > -1) {
       // UPDATE EXISTING ROW (Started by Portal B)
       tankSheet.getRange(rowIndex, 1).setValue(timestampStr);
@@ -400,7 +372,7 @@ function savePortalAData(data) {
       row[5] = data.preparation || '';
       row[quantityCol] = data.quantity;
       if (!data.isBlossomOrRose) row[12] = data.serialNumber; // Col M
-      
+
       tankSheet.appendRow(row);
     }
 
@@ -424,70 +396,61 @@ function savePortalAData(data) {
     throw new Error('Error saving data: ' + error.message);
   }
 }
-
 // [UPDATED] Save to external spreadsheet with NEW ID
 function saveToExternalSpreadsheet(rowData) {
   try {
     // UPDATED: New Spreadsheet ID for 2026
     const externalSpreadsheetId = '1AATh8aLorXF428tbExFU6LjWAdsn8ybQjp4933BeTzU';
-    
     // Open external spreadsheet
     const externalSS = SpreadsheetApp.openById(externalSpreadsheetId);
-    
+
     // Get the first sheet
     const externalSheet = externalSS.getSheetById(1416876654);
-    
+
     // Append the row to external spreadsheet
     externalSheet.appendRow(rowData);
-    
+
     Logger.log('Successfully saved to external spreadsheet');
   } catch (error) {
     throw new Error('Failed to save to external spreadsheet: ' + error.message);
   }
 }
-
 // Portal C - Get report data
 function getReportData(reportType, startDate, endDate) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
-    
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
-    
+
     if (reportType === 'tank') {
       return getTankReportData(ss, start, end);
     } else if (reportType === 'analysis') {
       return getAnalysisReportData(ss, start, end);
     }
-    
+
     throw new Error('نوع التقرير غير صحيح');
   } catch (error) {
     throw new Error('خطأ في تحميل البيانات: ' + error.message);
   }
 }
-
 // [UPDATED] Get Tank Report Data (Includes Lab Result & Merges Sheets)
 function getTankReportData(ss, startDate, endDate) {
   let allData = [];
-  
   // 1. Get data from NEW sheet
   const newTankSheet = ss.getSheetByName('Tank');
   if (newTankSheet) {
     allData = allData.concat(extractSheetData(newTankSheet));
   }
-  
   // 2. Get data from OLD sheet
   const oldTankSheet = ss.getSheetByName('Tank_2025');
   if (oldTankSheet) {
     allData = allData.concat(extractSheetData(oldTankSheet));
   }
-  
   const filtered = [];
-  allData.forEach(function(row) {
+  allData.forEach(function (row) {
     const timestamp = new Date(row[0]);
-    
     if (timestamp >= startDate && timestamp <= endDate) {
       filtered.push({
         date: Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
@@ -504,11 +467,9 @@ function getTankReportData(ss, startDate, endDate) {
       });
     }
   });
-  
-  filtered.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+  filtered.sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
   return filtered;
 }
-
 // [UPDATED] Helper to extract raw data (Widened range to 18 columns)
 function extractSheetData(sheet) {
   const lastRow = sheet.getLastRow();
@@ -516,17 +477,14 @@ function extractSheetData(sheet) {
   // UPDATED: Now reads 18 columns (A to R) instead of 14 to include Lab Data
   return sheet.getRange(2, 1, lastRow - 1, 18).getValues();
 }
-
 // [UPDATED] Get Analysis Report Data (Combines Products + Tanks from 2026 & 2025)
 function getAnalysisReportData(ss, startDate, endDate) {
   const filtered = [];
-  
   // --- PART 1: Get Product Analysis (Existing Logic) ---
   const analysisSheet = ss.getSheetByName('Analysis');
   if (analysisSheet && analysisSheet.getLastRow() >= 2) {
     const data = analysisSheet.getRange(2, 1, analysisSheet.getLastRow() - 1, 8).getValues();
-    
-    data.forEach(function(row) {
+    data.forEach(function (row) {
       const timestamp = new Date(row[0]);
       if (timestamp >= startDate && timestamp <= endDate) {
         filtered.push({
@@ -543,98 +501,92 @@ function getAnalysisReportData(ss, startDate, endDate) {
       }
     });
   }
-
   // --- PART 2: Get Tank Analysis (New Logic) ---
   // We check both current Tank sheet and archived Tank_2025
   const sheetsToCheck = ['Tank', 'Tank_2025'];
-  sheetsToCheck.forEach(function(sheetName) {
+  sheetsToCheck.forEach(function (sheetName) {
     const tankSheet = ss.getSheetByName(sheetName);
     if (!tankSheet || tankSheet.getLastRow() < 2) return;
-
     const tankData = tankSheet.getRange(2, 1, tankSheet.getLastRow() - 1, 18).getValues();
-    
-    tankData.forEach(function(row) {
+
+    tankData.forEach(function (row) {
       const serial = row[12];
-      
+
       if (sheetName === 'Tank_2025') {
-         // Old 2025 Structure: Col Q (16) = Device Time, Col R (17) = Lab Time
-         const deviceTime = row[16] ? new Date(row[16]) : null;
-         if (deviceTime && deviceTime >= startDate && deviceTime <= endDate) {
-           filtered.push({
-             date: Utilities.formatDate(deviceTime, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
-             product: 'Tank ' + serial,
-             method: 'الجهاز',
-             deviceReading: row[10] ? parseFloat(row[10]).toFixed(2) : 'N/A',
-             vv: row[13] ? (parseFloat(row[13]) * 100).toFixed(2) + '%' : 'N/A',
-             labResult: 'N/A',
-             refNumber: serial,
-             imageUrl: '',
-             type: 'tank'
-           });
-         }
-         const labTime = row[17] ? new Date(row[17]) : null;
-         if (labTime && labTime >= startDate && labTime <= endDate) {
-           filtered.push({
-             date: Utilities.formatDate(labTime, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
-             product: 'Tank ' + serial,
-             method: 'معملي',
-             deviceReading: 'N/A',
-             vv: 'N/A',
-             labResult: row[15] ? (parseFloat(row[15]) * 100).toFixed(2) + '%' : 'N/A',
-             refNumber: serial,
-             imageUrl: '',
-             type: 'tank'
-           });
-         }
+        // Old 2025 Structure: Col Q (16) = Device Time, Col R (17) = Lab Time
+        const deviceTime = row[16] ? new Date(row[16]) : null;
+        if (deviceTime && deviceTime >= startDate && deviceTime <= endDate) {
+          filtered.push({
+            date: Utilities.formatDate(deviceTime, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
+            product: 'Tank ' + serial,
+            method: 'الجهاز',
+            deviceReading: row[10] ? parseFloat(row[10]).toFixed(2) : 'N/A',
+            vv: row[13] ? (parseFloat(row[13]) * 100).toFixed(2) + '%' : 'N/A',
+            labResult: 'N/A',
+            refNumber: serial,
+            imageUrl: '',
+            type: 'tank'
+          });
+        }
+        const labTime = row[17] ? new Date(row[17]) : null;
+        if (labTime && labTime >= startDate && labTime <= endDate) {
+          filtered.push({
+            date: Utilities.formatDate(labTime, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
+            product: 'Tank ' + serial,
+            method: 'معملي',
+            deviceReading: 'N/A',
+            vv: 'N/A',
+            labResult: row[15] ? (parseFloat(row[15]) * 100).toFixed(2) + '%' : 'N/A',
+            refNumber: serial,
+            imageUrl: '',
+            type: 'tank'
+          });
+        }
       } else {
-         // New 2026 Structure: Col Q (16) = Lab Time, Col R (17) = Image URL
-         const labTime = row[16] ? new Date(row[16]) : null;
-         if (labTime && labTime >= startDate && labTime <= endDate) {
-           filtered.push({
-             date: Utilities.formatDate(labTime, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
-             product: 'Tank ' + serial,
-             method: 'معملي',
-             deviceReading: 'N/A',
-             vv: 'N/A',
-             labResult: row[15] ? (parseFloat(row[15]) * 100).toFixed(2) + '%' : 'N/A',
-             refNumber: serial,
-             imageUrl: row[17] ? String(row[17]) : '',
-             type: 'tank'
-           });
-         }
+        // New 2026 Structure: Col Q (16) = Lab Time, Col R (17) = Image URL
+        const labTime = row[16] ? new Date(row[16]) : null;
+        if (labTime && labTime >= startDate && labTime <= endDate) {
+          filtered.push({
+            date: Utilities.formatDate(labTime, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
+            product: 'Tank ' + serial,
+            method: 'معملي',
+            deviceReading: 'N/A',
+            vv: 'N/A',
+            labResult: row[15] ? (parseFloat(row[15]) * 100).toFixed(2) + '%' : 'N/A',
+            refNumber: serial,
+            imageUrl: row[17] ? String(row[17]) : '',
+            type: 'tank'
+          });
+        }
       }
     });
   });
-
   // Sort by Date Descending
-  filtered.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
-  
+  filtered.sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
   return filtered;
 }
-
 // Export report to Excel
 function exportReportToExcel(reportType, reportData) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
     const sheetName = reportType === 'tank' ? 'تقرير_تانكات_' + timestamp : 'تقرير_تحليلات_' + timestamp;
-    
     const reportSheet = ss.insertSheet(sheetName);
-    
+
     const title = reportType === 'tank' ? 'تقرير التانكات' : 'تقرير التحليلات';
     reportSheet.getRange(1, 1).setValue(title);
     reportSheet.getRange(1, 1).setFontSize(16).setFontWeight('bold');
-    
+
     const exportDate = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
     reportSheet.getRange(2, 1).setValue('تاريخ التصدير: ' + exportDate);
     reportSheet.getRange(2, 1).setFontSize(10).setFontStyle('italic');
-    
+
     if (reportType === 'tank') {
       const headers = [['التاريخ', 'رقم العينة', 'نوع الخامة', 'طريقة التحضير', 'العدد', 'نتيجة المعمل', 'صورة']];
       reportSheet.getRange(4, 1, 1, 7).setValues(headers);
       reportSheet.getRange(4, 1, 1, 7).setFontWeight('bold').setBackground('#3b82f6').setFontColor('#ffffff');
       if (reportData.length > 0) {
-        const rows = reportData.map(function(row) {
+        const rows = reportData.map(function (row) {
           return [
             row.date,
             row.serial,
@@ -648,7 +600,7 @@ function exportReportToExcel(reportType, reportData) {
         reportSheet.getRange(5, 1, rows.length, 7).setValues(rows);
         reportSheet.getRange(4, 1, rows.length + 1, 7).setBorder(true, true, true, true, true, true);
       }
-      
+
       for (let i = 1; i <= 7; i++) {
         reportSheet.autoResizeColumn(i);
       }
@@ -656,9 +608,9 @@ function exportReportToExcel(reportType, reportData) {
       const headers = [['التاريخ', 'اسم المنتج', 'نتيجة المعمل', 'رقم التشغيلة', 'صورة']];
       reportSheet.getRange(4, 1, 1, 5).setValues(headers);
       reportSheet.getRange(4, 1, 1, 5).setFontWeight('bold').setBackground('#10b981').setFontColor('#ffffff');
-      
+
       if (reportData.length > 0) {
-        const rows = reportData.map(function(row) {
+        const rows = reportData.map(function (row) {
           return [
             row.date,
             row.product,
@@ -670,48 +622,45 @@ function exportReportToExcel(reportType, reportData) {
         reportSheet.getRange(5, 1, rows.length, 5).setValues(rows);
         reportSheet.getRange(4, 1, rows.length + 1, 5).setBorder(true, true, true, true, true, true);
       }
-      
+
       for (let i = 1; i <= 5; i++) {
         reportSheet.autoResizeColumn(i);
       }
     }
-    
+
     const summaryRow = reportSheet.getLastRow() + 2;
     reportSheet.getRange(summaryRow, 1).setValue('إجمالي السجلات: ' + reportData.length);
     reportSheet.getRange(summaryRow, 1).setFontWeight('bold');
-    
+
     return ss.getUrl() + '#gid=' + reportSheet.getSheetId();
-    
+
   } catch (error) {
     throw new Error('خطأ في التصدير: ' + error.message);
   }
 }
-
 // Dashboard Functions
-
 function getTodayTanksDashboardData() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tankSheet = ss.getSheetByName('Tank');
-    
     if (!tankSheet) {
       return getEmptyTanksDashboard();
     }
-    
+
     const lastRow = tankSheet.getLastRow();
     if (lastRow < 2) {
       return getEmptyTanksDashboard();
     }
-    
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     const data = tankSheet.getRange(2, 1, lastRow - 1, 14).getValues();
-    
+
     const todayData = [];
-    data.forEach(function(row) {
+    data.forEach(function (row) {
       const timestamp = new Date(row[0]);
       if (timestamp >= today && timestamp < tomorrow) {
         todayData.push({
@@ -721,27 +670,27 @@ function getTodayTanksDashboardData() {
         });
       }
     });
-    
+
     if (todayData.length === 0) {
       return getEmptyTanksDashboard();
     }
-    
-    const serials = todayData.map(function(item) { return item.serial; }).filter(function(s) { return s !== '' && !isNaN(s); });
-    const vvValues = todayData.map(function(item) { return parseFloat(item.vv) * 100; }).filter(function(v) { return !isNaN(v); });
-    
+
+    const serials = todayData.map(function (item) { return item.serial; }).filter(function (s) { return s !== '' && !isNaN(s); });
+    const vvValues = todayData.map(function (item) { return parseFloat(item.vv) * 100; }).filter(function (v) { return !isNaN(v); });
+
     const startSerial = serials.length > 0 ? Math.min.apply(null, serials) : 0;
     const endSerial = serials.length > 0 ? Math.max.apply(null, serials) : 0;
-    
+
     let highest = 0;
     let lowest = 0;
     let highestSerial = 0;
     let lowestSerial = 0;
-    
+
     if (vvValues.length > 0) {
       highest = Math.max.apply(null, vvValues);
       lowest = Math.min.apply(null, vvValues);
-      
-      todayData.forEach(function(item) {
+
+      todayData.forEach(function (item) {
         const vvPercent = parseFloat(item.vv) * 100;
         if (vvPercent === highest) {
           highestSerial = item.serial;
@@ -751,7 +700,7 @@ function getTodayTanksDashboardData() {
         }
       });
     }
-    
+
     return {
       totalCount: todayData.length,
       startSerial: startSerial,
@@ -761,43 +710,41 @@ function getTodayTanksDashboardData() {
       highestSerial: highestSerial,
       lowestSerial: lowestSerial
     };
-    
+
   } catch (error) {
     Logger.log('Error in getTodayTanksDashboardData: ' + error.message);
     return getEmptyTanksDashboard();
   }
 }
-
 function getTodayAnalysisDashboardData() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const analysisSheet = ss.getSheetByName('Analysis');
     const tankSheet = ss.getSheetByName('Tank');
-    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     let deviceProducts = 0;
     let deviceTanks = 0;
     let labProducts = 0;
     let labTanks = 0;
     let allConcentrations = [];
-    
+
     if (analysisSheet) {
       const lastRow = analysisSheet.getLastRow();
       if (lastRow >= 2) {
         const data = analysisSheet.getRange(2, 1, lastRow - 1, 7).getValues();
-        
-        data.forEach(function(row, index) {
+
+        data.forEach(function (row, index) {
           const timestamp = new Date(row[0]);
           if (timestamp >= today && timestamp < tomorrow) {
             const method = row[2];
             const vv = row[4];
             const labResult = row[5];
             const refNumber = row[6];
-            
+
             if (method === 'الجهاز') {
               deviceProducts++;
               if (vv && !isNaN(vv)) {
@@ -823,17 +770,17 @@ function getTodayAnalysisDashboardData() {
         });
       }
     }
-    
+
     if (tankSheet) {
       const lastRow = tankSheet.getLastRow();
       if (lastRow >= 2) {
         const data = tankSheet.getRange(2, 1, lastRow - 1, 18).getValues();
-        
-        data.forEach(function(row, index) {
+
+        data.forEach(function (row, index) {
           const deviceAnalysisTime = row[16];
           const labAnalysisTime = row[17];
           const serial = row[12];
-          
+
           if (deviceAnalysisTime) {
             const analysisDate = new Date(deviceAnalysisTime);
             if (analysisDate >= today && analysisDate < tomorrow) {
@@ -849,7 +796,7 @@ function getTodayAnalysisDashboardData() {
               }
             }
           }
-          
+
           if (labAnalysisTime) {
             const analysisDate = new Date(labAnalysisTime);
             if (analysisDate >= today && analysisDate < tomorrow) {
@@ -868,26 +815,26 @@ function getTodayAnalysisDashboardData() {
         });
       }
     }
-    
+
     let highest = 0;
     let lowest = 0;
     let highestId = '0';
     let lowestId = '0';
     let highestLabel = '';
     let lowestLabel = '';
-    
+
     if (allConcentrations.length > 0) {
-      const sortedConc = allConcentrations.sort(function(a, b) { return b.value - a.value; });
-      
+      const sortedConc = allConcentrations.sort(function (a, b) { return b.value - a.value; });
+
       highest = sortedConc[0].value;
       highestId = sortedConc[0].id;
       highestLabel = sortedConc[0].label;
-      
+
       lowest = sortedConc[sortedConc.length - 1].value;
       lowestId = sortedConc[sortedConc.length - 1].id;
       lowestLabel = sortedConc[sortedConc.length - 1].label;
     }
-    
+
     return {
       deviceTotal: deviceProducts + deviceTanks,
       deviceProducts: deviceProducts,
@@ -902,13 +849,12 @@ function getTodayAnalysisDashboardData() {
       highestLabel: highestLabel,
       lowestLabel: lowestLabel
     };
-    
+
   } catch (error) {
     Logger.log('Error in getTodayAnalysisDashboardData: ' + error.message);
     return getEmptyAnalysisDashboard();
   }
 }
-
 function getEmptyTanksDashboard() {
   return {
     totalCount: 0,
@@ -920,7 +866,6 @@ function getEmptyTanksDashboard() {
     lowestSerial: 0
   };
 }
-
 function getEmptyAnalysisDashboard() {
   return {
     deviceTotal: 0,
@@ -937,52 +882,47 @@ function getEmptyAnalysisDashboard() {
     lowestLabel: ''
   };
 }
-
 // --- TDS GENERATOR FUNCTIONS ---
-
 // Get Product Options from TDS_Settings
 function getTDSProducts() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('TDS_Settings');
     if (!sheet) return [];
-    
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return [];
-    
+
     // Get Product Names from Column A
     const products = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-    return products.map(function(row) { return row[0]; }).filter(function(val) { return val !== ''; });
+    return products.map(function (row) { return row[0]; }).filter(function (val) { return val !== ''; });
   } catch (error) {
     throw new Error('Error loading TDS products: ' + error.message);
   }
 }
-
 // Get Fixed Settings for a specific product (Safe Version)
 function getTDSDetails(productName) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('TDS_Settings');
     const lastRow = sheet.getLastRow();
-    
     // Get all data A2:K
-    const data = sheet.getRange(2, 1, lastRow - 1, 11).getValues(); 
-    
+    const data = sheet.getRange(2, 1, lastRow - 1, 11).getValues();
+
     for (let i = 0; i < data.length; i++) {
       if (data[i][0] == productName) {
         // Convert EVERYTHING to String to avoid "Complex Object" errors
         return {
-          product:    String(data[i][0] || ''),
-          standard:   String(data[i][1] || ''),
+          product: String(data[i][0] || ''),
+          standard: String(data[i][1] || ''),
           appearance: String(data[i][2] || ''),
-          odor:       String(data[i][3] || ''),
-          density:    String(data[i][4] || ''),
-          alcohol:    String(data[i][5] || ''),
-          solids:     String(data[i][6] || ''),
-          micro:      String(data[i][7] || ''),
-          shelfLife:  String(data[i][8] || ''),
-          storage:    String(data[i][9] || ''),
-          logoUrl:    String(data[i][10] || '')
+          odor: String(data[i][3] || ''),
+          density: String(data[i][4] || ''),
+          alcohol: String(data[i][5] || ''),
+          solids: String(data[i][6] || ''),
+          micro: String(data[i][7] || ''),
+          shelfLife: String(data[i][8] || ''),
+          storage: String(data[i][9] || ''),
+          logoUrl: String(data[i][10] || '')
         };
       }
     }
@@ -991,37 +931,34 @@ function getTDSDetails(productName) {
     throw new Error('Error fetching TDS details: ' + error.message);
   }
 }
-
 // --- TDS GENERATION & LOGGING ---
-
 function generateAndLogTDS(data) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let logSheet = ss.getSheetByName('TDS_Logs');
     if (!logSheet) throw new Error('Sheet "TDS_Logs" not found');
-    
     // 1. Generate Unique ID
     const year = new Date().getFullYear();
-    const lastRow = Math.max(logSheet.getLastRow(), 1); 
+    const lastRow = Math.max(logSheet.getLastRow(), 1);
     const sequence = lastRow; // Starts at 1 if sheet is empty
     const padSequence = ('000' + sequence).slice(-3);
     const uniqueID = 'TDS-' + year + '-' + padSequence;
-    
+
     // 2. Fetch Fixed Settings for the PDF
     const settings = getTDSDetails(data.productName);
-    
+
     // 3. Prepare Data for Template
     data.documentId = uniqueID; // Add ID to data object
-    
+
     const template = HtmlService.createTemplateFromFile('TDSTEMPLATE');
     template.data = data;
     template.settings = settings;
-    
+
     // 4. Generate PDF Blob
     const htmlOutput = template.evaluate();
     const pdfBlob = htmlOutput.getAs('application/pdf');
     pdfBlob.setName(uniqueID + '_' + data.productName + '.pdf');
-    
+
     // 5. Save to Google Drive (Folder: "TDS Certificates")
     const folderName = "TDS Certificates";
     const folders = DriveApp.getFoldersByName(folderName);
@@ -1031,11 +968,11 @@ function generateAndLogTDS(data) {
     } else {
       folder = DriveApp.createFolder(folderName);
     }
-    
+
     const file = folder.createFile(pdfBlob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     const fileUrl = file.getUrl();
-    
+
     // 6. Save Log to Spreadsheet (Col K = URL)
     const row = [
       uniqueID,                  // A: ID
@@ -1050,55 +987,53 @@ function generateAndLogTDS(data) {
       Session.getActiveUser().getEmail(), // J: User
       fileUrl                    // K: URL
     ];
-    
+
     logSheet.appendRow(row);
-    
+
     return { success: true, documentId: uniqueID, url: fileUrl };
-    
+
   } catch (error) {
     throw new Error('Error generating TDS: ' + error.message);
   }
 }
-
 // --- GENERIC TDS GENERATION ---
 function generateAndLogGenericTDS(productName) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let logSheet = ss.getSheetByName('TDS_Logs');
-    
     // 1. Generate ID (use "SPEC" prefix instead of "TDS")
     const year = new Date().getFullYear();
-    const lastRow = Math.max(logSheet.getLastRow(), 1); 
+    const lastRow = Math.max(logSheet.getLastRow(), 1);
     const uniqueID = 'SPEC-' + year + '-' + ('000' + lastRow).slice(-3);
-    
+
     // 2. Fetch Fixed Settings
     const settings = getTDSDetails(productName);
-    
+
     // 3. Prepare Data (Flag isGeneric = true)
     const data = {
       productName: productName,
       documentId: uniqueID,
       isGeneric: true  // <--- This controls the template
     };
-    
+
     // 4. Generate PDF
     const template = HtmlService.createTemplateFromFile('TDSTEMPLATE');
     template.data = data;
     template.settings = settings;
-    
+
     const htmlOutput = template.evaluate();
     const pdfBlob = htmlOutput.getAs('application/pdf');
     pdfBlob.setName(uniqueID + '_' + productName + '_Spec.pdf');
-    
+
     // 5. Save to Drive
     const folderName = "TDS Certificates";
     const folders = DriveApp.getFoldersByName(folderName);
     const folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
-    
+
     const file = folder.createFile(pdfBlob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     const fileUrl = file.getUrl();
-    
+
     // 6. Save Log (Simple log for generic specs)
     const row = [
       uniqueID,
@@ -1112,16 +1047,14 @@ function generateAndLogGenericTDS(productName) {
       fileUrl
     ];
     logSheet.appendRow(row);
-    
+
     return { success: true, documentId: uniqueID, url: fileUrl };
-    
+
   } catch (error) {
     throw new Error('Error generating Generic Spec: ' + error.message);
   }
 }
-
 // --- PRODUCTION PORTAL FUNCTIONS ---
-
 function authenticateUser(passcode) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1129,7 +1062,6 @@ function authenticateUser(passcode) {
     if (!sheet) return { valid: false, message: 'لم يتم العثور على شيت Users. الرجاء إنشائه.' };
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { valid: false, message: 'قائمة المستخدمين فارغة' };
-    
     const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
     for (let i = 0; i < data.length; i++) {
       if (data[i][1].toString() === passcode.toString()) {
@@ -1137,9 +1069,8 @@ function authenticateUser(passcode) {
       }
     }
     return { valid: false, message: 'رمز المرور غير صحيح' };
-  } catch(e) { return { valid: false, message: e.message }; }
+  } catch (e) { return { valid: false, message: e.message }; }
 }
-
 function getProdSetup() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1149,65 +1080,60 @@ function getProdSetup() {
       sheet.appendRow(['Session ID', 'Timestamp', 'User Name', 'Date', 'Product Name', 'Start Time', 'End Time', 'Duration (Mins)', 'Quantity', 'Avg Time/Unit (Mins)', 'Notes', 'Image URL', 'Status']);
       sheet.getRange(1, 1, 1, 13).setFontWeight('bold');
     }
-    
     const idxSheet = ss.getSheetByName('index');
     let products = [];
     if (idxSheet && idxSheet.getLastRow() >= 2) {
       const data = idxSheet.getRange(2, 2, idxSheet.getLastRow() - 1, 1).getValues();
-      products = data.map(function(r) { return r[0]; }).filter(function(v) { return v !== ''; });
+      products = data.map(function (r) { return r[0]; }).filter(function (v) { return v !== ''; });
     }
     return { products: products };
   } catch (e) { throw new Error(e.message); }
 }
-
 function startProdSession(data) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Production_Logs');
     const sessionId = 'PRD-' + new Date().getTime();
-    
     sheet.appendRow([
-      sessionId, new Date(), data.user, data.date, data.product, 
+      sessionId, new Date(), data.user, data.date, data.product,
       data.startTime, '', '', '', '', '', '', 'Active'
     ]);
     syncWasteTimes(data.date);
     return { success: true };
   } catch (e) { throw new Error(e.message); }
 }
-
 function endProdSession(data) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Production_Logs');
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) throw new Error('لا توجد بيانات');
-    
     const table = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
     let rowIndex = -1;
-    
+
     // Find the ACTIVE row for this session (searching from bottom ensures we get the latest resumed segment)
     for (let i = table.length - 1; i >= 0; i--) {
       if (table[i][0] === data.sessionId && table[i][12] !== 'Completed' && table[i][12] !== 'Paused' && table[i][12] !== 'Cancelled') {
-        rowIndex = i + 2; break; 
+        rowIndex = i + 2; break;
       }
     }
     if (rowIndex === -1) throw new Error('لم يتم العثور على الجلسة النشطة');
-    
+
     const startTimeStr = table[rowIndex - 2][5];
     const duration = calculateDuration(startTimeStr, data.endTime);
     const tz = Session.getScriptTimeZone();
     const timestamp = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
-    
+
     // Determine Action Logic
     let statusStr = 'Completed';
     let notePrefix = '';
-    
+
     if (data.action === 'pause') {
-       statusStr = 'Paused';
-       notePrefix = '[إيقاف مؤقت] ';
+      statusStr = 'Paused';
+      notePrefix = '[إيقاف مؤقت] ';
     } else if (data.action === 'cancel') {
-       statusStr = 'Cancelled';
-       notePrefix = '[إلغاء] ';
+      statusStr = 'Cancelled';
+      notePrefix = '[إلغاء] ';
     }
 
     // Save Current Segment Data
@@ -1222,70 +1148,68 @@ function endProdSession(data) {
 
     // --- PROPORTIONAL ACCRUAL ACCOUNTING (If Completed) ---
     if (data.action === 'complete') {
-       const updatedTable = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
-       let segments = [];
-       let totalDur = 0;
-       
-       // Find ALL segments belonging to this Session ID (including Resumed ones)
-       for (let i = 0; i < updatedTable.length; i++) {
-          let stat = updatedTable[i][12];
-          if (updatedTable[i][0] === data.sessionId && (stat === 'Paused' || stat === 'Resumed' || stat === 'Completed')) {
-             segments.push(i + 2);
-             totalDur += (parseFloat(updatedTable[i][7]) || 0); // Index 7 is Duration (Col H)
-          }
-       }
-       
-       // Distribute Quantity Proportionally across all days/segments
-       const totalQty = parseFloat(data.quantity) || 0;
-       if (totalDur > 0 && totalQty > 0) {
-          segments.forEach(rIdx => {
-             let segDur = parseFloat(sheet.getRange(rIdx, 8).getValue()) || 0;
-             let proportion = segDur / totalDur;
-             // Strictly round quantity to 1 decimal place, stripping trailing zeroes
-             let segQty = parseFloat((proportion * totalQty).toFixed(1)); 
-             let segAvg = segQty > 0 ? (segDur / segQty).toFixed(2) : 0;
-             
-             sheet.getRange(rIdx, 9).setValue(segQty);
-             sheet.getRange(rIdx, 10).setValue(segAvg);
-             sheet.getRange(rIdx, 13).setValue('Completed'); // Force status to Completed
-          });
-       }
+      const updatedTable = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
+      let segments = [];
+      let totalDur = 0;
+
+      // Find ALL segments belonging to this Session ID (including Resumed ones)
+      for (let i = 0; i < updatedTable.length; i++) {
+        let stat = updatedTable[i][12];
+        if (updatedTable[i][0] === data.sessionId && (stat === 'Paused' || stat === 'Resumed' || stat === 'Completed')) {
+          segments.push(i + 2);
+          totalDur += (parseFloat(updatedTable[i][7]) || 0); // Index 7 is Duration (Col H)
+        }
+      }
+
+      // Distribute Quantity Proportionally across all days/segments
+      const totalQty = parseFloat(data.quantity) || 0;
+      if (totalDur > 0 && totalQty > 0) {
+        segments.forEach(rIdx => {
+          let segDur = parseFloat(sheet.getRange(rIdx, 8).getValue()) || 0;
+          let proportion = segDur / totalDur;
+          // Strictly round quantity to 1 decimal place, stripping trailing zeroes
+          let segQty = parseFloat((proportion * totalQty).toFixed(1));
+          let segAvg = segQty > 0 ? (segDur / segQty).toFixed(2) : 0;
+
+          sheet.getRange(rIdx, 9).setValue(segQty);
+          sheet.getRange(rIdx, 10).setValue(segAvg);
+          sheet.getRange(rIdx, 13).setValue('Completed'); // Force status to Completed
+        });
+      }
     }
-    
+
     let dateStr = table[rowIndex - 2][3] instanceof Date ? Utilities.formatDate(table[rowIndex - 2][3], tz, 'yyyy-MM-dd') : String(table[rowIndex - 2][3]);
     syncWasteTimes(dateStr);
-    
+
     return { success: true };
   } catch (e) { throw new Error(e.message); }
 }
-
 function resumeProdSession(data) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Production_Logs');
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) throw new Error('لا توجد بيانات');
-    
     const table = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
     let parentRow = null;
     let parentRowIndex = -1;
-    
+
     // Find the last paused row for this session to copy its data
     for (let i = table.length - 1; i >= 0; i--) {
       if (table[i][0] === data.sessionId && table[i][12] === 'Paused') {
-        parentRow = table[i]; 
+        parentRow = table[i];
         parentRowIndex = i + 2;
         break;
       }
     }
     if (!parentRow) throw new Error('لم يتم العثور على تشغيلة معلقة لهذا المعرف');
-    
+
     // Update the old Paused row to 'Resumed' so it disappears from the frontend queue
     sheet.getRange(parentRowIndex, 13).setValue('Resumed');
-    
+
     const tz = Session.getScriptTimeZone();
     const newDate = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'); // Resume happens TODAY
-    
+
     // Create new row segment linked to the same sessionId
     sheet.appendRow([
       parentRow[0], // A: sessionId
@@ -1296,27 +1220,25 @@ function resumeProdSession(data) {
       data.resumeTime, // F: Start Time
       '', '', '', '', '', '', 'Active' // Force status to Active
     ]);
-    
+
     return { success: true };
   } catch (e) { throw new Error(e.message); }
 }
-
 function getTodayProdSessions(targetDateStr) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Production_Logs');
     if (!sheet || sheet.getLastRow() < 2) return [];
-    
     const todayStr = targetDateStr || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-    
+
     // Auto-Sync Waste Times BEFORE fetching the data to ensure the dashboard timeline is 100% accurate on load
     syncWasteTimes(todayStr);
-    
+
     // Re-fetch the Last Row because syncWasteTimes might have added or deleted rows!
     const finalLastRow = sheet.getLastRow();
     const data = finalLastRow < 2 ? [] : sheet.getRange(2, 1, finalLastRow - 1, 13).getValues();
     const notesData = finalLastRow < 2 ? [] : sheet.getRange(2, 1, finalLastRow - 1, 13).getNotes();
-    
+
     const filtered = [];
     for (let i = 0; i < data.length; i++) {
       // Ensure the cell date is formatted to match todayStr regardless of how Sheets saved it
@@ -1324,23 +1246,23 @@ function getTodayProdSessions(targetDateStr) {
       if (data[i][3]) {
         try {
           rowDateStr = Utilities.formatDate(new Date(data[i][3]), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-        } catch(e) {
+        } catch (e) {
           rowDateStr = String(data[i][3]).trim();
         }
       }
-      
+
       if (rowDateStr === todayStr) {
         let sTime = data[i][5] instanceof Date ? Utilities.formatDate(data[i][5], Session.getScriptTimeZone(), 'HH:mm') : String(data[i][5] || '');
         let eTime = data[i][6] instanceof Date ? Utilities.formatDate(data[i][6], Session.getScriptTimeZone(), 'HH:mm') : String(data[i][6] || '');
-        
+
         // Combine notes from Start, End, Qty, Notes, and Image columns (Indices 5, 6, 8, 10, 11)
         let combinedNotes = [notesData[i][5], notesData[i][6], notesData[i][8], notesData[i][10], notesData[i][11]]
-          .filter(function(n) { return n !== ''; })
+          .filter(function (n) { return n !== ''; })
           .join('\n');
-        
+
         filtered.push({
-          id: data[i][0], user: data[i][2], date: rowDateStr, product: data[i][4], 
-          startTime: sTime, endTime: eTime, duration: data[i][7], 
+          id: data[i][0], user: data[i][2], date: rowDateStr, product: data[i][4],
+          startTime: sTime, endTime: eTime, duration: data[i][7],
           quantity: data[i][8], avg: data[i][9], notes: data[i][10], image: data[i][11], status: data[i][12],
           editHistory: combinedNotes
         });
@@ -1349,23 +1271,21 @@ function getTodayProdSessions(targetDateStr) {
     return filtered.reverse(); // Newest first
   } catch (e) { throw new Error(e.message); }
 }
-
 function editProdSession(data) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Production_Logs');
     const lastRow = sheet.getLastRow();
-    
     // Grab up to column 13 (M) so we can check Status for the ripple effect
     const table = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
     let rowIndex = -1; let oldData = [];
-    
+
     // Search backward so the backend edits the exact same recent segment the frontend showed
     for (let i = table.length - 1; i >= 0; i--) {
       if (table[i][0] === data.sessionId) { rowIndex = i + 2; oldData = table[i]; break; }
     }
     if (rowIndex === -1) throw new Error('Session not found');
-    
+
     const oldStartTime = oldData[5] instanceof Date ? Utilities.formatDate(oldData[5], Session.getScriptTimeZone(), 'HH:mm') : String(oldData[5] || '');
     const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
 
@@ -1377,91 +1297,89 @@ function editProdSession(data) {
       }
       return { success: true };
     }
-    
+
     const oldEndTime = oldData[6] instanceof Date ? Utilities.formatDate(oldData[6], Session.getScriptTimeZone(), 'HH:mm') : String(oldData[6] || '');
     const oldNotes = oldData[10];
-    
+
     // 2. RECALCULATE DURATION FOR THE EDITED ROW
     const newDuration = calculateDuration(data.newStartTime, data.newEndTime);
-    
+
     sheet.getRange(rowIndex, 6).setValue(data.newStartTime);
     sheet.getRange(rowIndex, 7).setValue(data.newEndTime);
     sheet.getRange(rowIndex, 8).setValue(newDuration);
     sheet.getRange(rowIndex, 11).setValue(data.newNotes || '');
     if (data.newImageUrl) sheet.getRange(rowIndex, 12).setValue(data.newImageUrl);
-    
+
     if (oldStartTime !== data.newStartTime) addCellNote(sheet, rowIndex, 6, `[${timestamp}] ${data.user}: تعديل وقت البدء إلى ${data.newStartTime}`);
     if (oldEndTime !== data.newEndTime) addCellNote(sheet, rowIndex, 7, `[${timestamp}] ${data.user}: تعديل وقت الإنهاء إلى ${data.newEndTime}`);
     if (String(oldNotes) !== String(data.newNotes)) addCellNote(sheet, rowIndex, 11, `[${timestamp}] ${data.user}: تم تعديل الملاحظات`);
     if (data.newImageUrl) addCellNote(sheet, rowIndex, 12, `[${timestamp}] ${data.user}: تم تحديث الصورة`);
-    
+
     // 3. RIPPLE EFFECT: PROPORTIONAL REBALANCING (Time & Quantity)
     // Only apply math if it's a real product (not Waste/Break) and global quantity was sent
     if (data.newTotalQuantity !== undefined && oldData[4] !== 'وقت مهدر' && oldData[4] !== 'وقت الراحة') {
-        let segments = [];
-        let totalBatchDur = 0;
-        
-        // Scan ALL rows to find every segment of this specific batch
-        for (let i = 0; i < table.length; i++) {
-            let stat = table[i][12];
-            if (table[i][0] === data.sessionId && (stat === 'Paused' || stat === 'Resumed' || stat === 'Completed')) {
-                segments.push(i + 2);
-                // If it's the row we just edited, use the fresh newDuration. Otherwise, use table duration.
-                let segDur = (i + 2 === rowIndex) ? newDuration : (parseFloat(table[i][7]) || 0);
-                totalBatchDur += segDur;
-            }
+      let segments = [];
+      let totalBatchDur = 0;
+
+      // Scan ALL rows to find every segment of this specific batch
+      for (let i = 0; i < table.length; i++) {
+        let stat = table[i][12];
+        if (table[i][0] === data.sessionId && (stat === 'Paused' || stat === 'Resumed' || stat === 'Completed')) {
+          segments.push(i + 2);
+          // If it's the row we just edited, use the fresh newDuration. Otherwise, use table duration.
+          let segDur = (i + 2 === rowIndex) ? newDuration : (parseFloat(table[i][7]) || 0);
+          totalBatchDur += segDur;
         }
-        
-        let globalQty = parseFloat(data.newTotalQuantity) || 0;
-        
-        // Split the new Global Quantity proportionally based on the updated durations
-        if (totalBatchDur > 0 && globalQty > 0) {
-            segments.forEach(rIdx => {
-                let sDur = (rIdx === rowIndex) ? newDuration : (parseFloat(sheet.getRange(rIdx, 8).getValue()) || 0);
-                let proportion = sDur / totalBatchDur;
-                
-                // Strict 1-Decimal Rounding
-                let sQty = parseFloat((proportion * globalQty).toFixed(1));
-                let sAvg = sQty > 0 ? (sDur / sQty).toFixed(2) : 0;
-                
-                sheet.getRange(rIdx, 9).setValue(sQty);
-                sheet.getRange(rIdx, 10).setValue(sAvg);
-            });
-            
-            addCellNote(sheet, rowIndex, 9, `[${timestamp}] ${data.user}: حفظ/إعادة توزيع إجمالي كمية الدفعة (${globalQty})`);
-        }
+      }
+
+      let globalQty = parseFloat(data.newTotalQuantity) || 0;
+
+      // Split the new Global Quantity proportionally based on the updated durations
+      if (totalBatchDur > 0 && globalQty > 0) {
+        segments.forEach(rIdx => {
+          let sDur = (rIdx === rowIndex) ? newDuration : (parseFloat(sheet.getRange(rIdx, 8).getValue()) || 0);
+          let proportion = sDur / totalBatchDur;
+
+          // Strict 1-Decimal Rounding
+          let sQty = parseFloat((proportion * globalQty).toFixed(1));
+          let sAvg = sQty > 0 ? (sDur / sQty).toFixed(2) : 0;
+
+          sheet.getRange(rIdx, 9).setValue(sQty);
+          sheet.getRange(rIdx, 10).setValue(sAvg);
+        });
+
+        addCellNote(sheet, rowIndex, 9, `[${timestamp}] ${data.user}: حفظ/إعادة توزيع إجمالي كمية الدفعة (${globalQty})`);
+      }
     }
-    
+
     // 4. SYNC WASTE TIMELINE
     let dateStr = oldData[3] instanceof Date ? Utilities.formatDate(oldData[3], Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(oldData[3]);
     syncWasteTimes(dateStr);
     
+    // 5. RETROACTIVE SYNC: Fix JSON performance tracking for this day onwards
+    triggerRetroactiveSync(dateStr, data.user);
+    
     return { success: true };
   } catch (e) { throw new Error(e.message); }
 }
-
 function calculateDuration(startStr, endStr) {
   let sStr = startStr instanceof Date ? Utilities.formatDate(startStr, Session.getScriptTimeZone(), 'HH:mm') : String(startStr);
   let eStr = endStr instanceof Date ? Utilities.formatDate(endStr, Session.getScriptTimeZone(), 'HH:mm') : String(endStr);
-  
   const s = sStr.split(':');
   const e = eStr.split(':');
   const d1 = new Date(); d1.setHours(parseInt(s[0] || 0), parseInt(s[1] || 0), 0);
   const d2 = new Date(); d2.setHours(parseInt(e[0] || 0), parseInt(e[1] || 0), 0);
-  let diff = Math.round((d2 - d1) / 60000); 
+  let diff = Math.round((d2 - d1) / 60000);
   if (diff < 0) diff += 24 * 60; // Over midnight
   return diff;
 }
-
 function addCellNote(sheet, row, col, newNoteLine) {
   const cell = sheet.getRange(row, col);
   const existingNote = cell.getNote();
   const fullNote = existingNote ? existingNote + '\n' + newNoteLine : newNoteLine;
   cell.setNote(fullNote);
 }
-
 // --- NEW TIMELINE ENGINE & BREAK LOGIC ---
-
 function addBreakSession(data) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1475,10 +1393,10 @@ function addBreakSession(data) {
     ]);
     syncWasteTimes(data.date);
     return { success: true };
-  } catch (e) { throw new Error(e.message);
+  } catch (e) {
+    throw new Error(e.message);
   }
 }
-
 function endBreakSession(data) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1492,104 +1410,90 @@ function endBreakSession(data) {
       if (table[i][0] === data.sessionId) { rowIndex = i + 2; break; }
     }
     if (rowIndex === -1) throw new Error('لم يتم العثور على الجلسة');
-    
     const startTimeStr = table[rowIndex - 2][5];
     const duration = calculateDuration(startTimeStr, data.endTime);
-    
+
     let statusStr = 'Completed';
     if (data.action === 'cancel') statusStr = 'Cancelled';
-    
+
     sheet.getRange(rowIndex, 7).setValue(data.endTime);
     sheet.getRange(rowIndex, 8).setValue(duration);
-    
+
     if (data.action === 'cancel' && data.notes) {
-       let existingNote = String(table[rowIndex - 2][10] || '');
-       let finalNote = existingNote + (existingNote ? '\n' : '') + '[إلغاء الراحة] ' + data.notes;
-       sheet.getRange(rowIndex, 11).setValue(finalNote);
+      let existingNote = String(table[rowIndex - 2][10] || '');
+      let finalNote = existingNote + (existingNote ? '\n' : '') + '[إلغاء الراحة] ' + data.notes;
+      sheet.getRange(rowIndex, 11).setValue(finalNote);
     }
-    
+
     sheet.getRange(rowIndex, 13).setValue(statusStr);
-    
+
     const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
     addCellNote(sheet, rowIndex, 13, `[${timestamp}] Break ${statusStr} by ${data.user}.`);
-    
+
     let dateStr = table[rowIndex - 2][3] instanceof Date ? Utilities.formatDate(table[rowIndex - 2][3], Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(table[rowIndex - 2][3]);
     syncWasteTimes(dateStr);
-    
+
     return { success: true };
   } catch (e) { throw new Error(e.message); }
 }
-
 function timeToMins(timeStr) {
   if (!timeStr) return 0;
   let p = String(timeStr).split(':');
-  return parseInt(p[0]||0) * 60 + parseInt(p[1]||0);
+  return parseInt(p[0] || 0) * 60 + parseInt(p[1] || 0);
 }
-
 function minsToTime(mins) {
   let h = Math.floor((mins % 1440) / 60);
   let m = (mins % 1440) % 60;
   return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
 }
-
 function forceSyncWasteTimes(dateStr) {
   syncWasteTimes(dateStr);
   return { success: true };
 }
-
 function syncWasteTimes(dateStr) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Production_Logs');
   if (!sheet) return;
   const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
-
   let timeline = new Array(1440).fill(false);
   let todayRows = [];
-
-  data.forEach(function(r, i) {
-    let rowDate = r[3] instanceof Date ? Utilities.formatDate(r[3], Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(r[3]||'').trim();
-    let status = String(r[12]||'').trim();
-    
+  data.forEach(function (r, i) {
+    let rowDate = r[3] instanceof Date ? Utilities.formatDate(r[3], Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(r[3] || '').trim();
+    let status = String(r[12] || '').trim();
     // CRITICAL: Completely ignore Cancelled sessions so they correctly turn into Waste time
     if (rowDate === dateStr && status !== 'Cancelled' && status !== 'ملغي') {
       let type = (r[4] === 'وقت مهدر') ? 'Waste' : 'Busy';
-      
+
       // Safely extract HH:mm regardless of how Google Sheets formatted the cell
-      let sTime = r[5] instanceof Date ? Utilities.formatDate(r[5], Session.getScriptTimeZone(), 'HH:mm') : String(r[5]||'').trim();
-      let eTime = r[6] instanceof Date ? Utilities.formatDate(r[6], Session.getScriptTimeZone(), 'HH:mm') : String(r[6]||'').trim();
-      
+      let sTime = r[5] instanceof Date ? Utilities.formatDate(r[5], Session.getScriptTimeZone(), 'HH:mm') : String(r[5] || '').trim();
+      let eTime = r[6] instanceof Date ? Utilities.formatDate(r[6], Session.getScriptTimeZone(), 'HH:mm') : String(r[6] || '').trim();
+
       // Handle cases where Sheets appends seconds to string representations
       if (sTime.length > 5 && sTime.includes(':')) sTime = sTime.substring(0, 5);
       if (eTime.length > 5 && eTime.includes(':')) eTime = eTime.substring(0, 5);
-      
+
       todayRows.push({ rowIndex: i + 2, type: type, start: sTime, end: eTime, status: r[12] });
     }
   });
-
   const shiftStart = 480; // 08:00 AM
   const shiftEnd = 990;   // 16:30 PM (4:30 PM)
-  
   let isToday = dateStr === Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
   let nowTimeStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm');
   let nowMin = timeToMins(nowTimeStr);
-  
   // Do not project waste into the future if the shift is still ongoing
   let latestEvalTime = isToday ? Math.min(shiftEnd, nowMin) : shiftEnd;
   if (isToday && nowMin < shiftStart) return; // Shift hasn't started yet
-
-  todayRows.forEach(function(r) {
+  todayRows.forEach(function (r) {
     if (r.type === 'Waste' || !r.start) return;
     let sMin = timeToMins(r.start);
-
     if (r.status === 'Active') {
-      for(let m = sMin; m < nowMin; m++) timeline[m] = true;
+      for (let m = sMin; m < nowMin; m++) timeline[m] = true;
     } else if (r.end) {
       let eMin = timeToMins(r.end);
-      if (eMin < sMin) eMin += 1440; 
-      for(let m = sMin; m < eMin; m++) timeline[m] = true;
+      if (eMin < sMin) eMin += 1440;
+      for (let m = sMin; m < eMin; m++) timeline[m] = true;
     }
   });
-
   let gaps = []; let inGap = false; let gapStart = 0;
   // Scan strictly within the shift boundaries
   for (let m = shiftStart; m <= latestEvalTime; m++) {
@@ -1602,11 +1506,9 @@ function syncWasteTimes(dateStr) {
       }
     }
   }
-
-  let wasteRows = todayRows.filter(function(r) { return r.type === 'Waste'; }).sort(function(a,b) { return timeToMins(a.start) - timeToMins(b.start); });
+  let wasteRows = todayRows.filter(function (r) { return r.type === 'Waste'; }).sort(function (a, b) { return timeToMins(a.start) - timeToMins(b.start); });
   let maxI = Math.max(gaps.length, wasteRows.length);
   let rowsToDelete = [];
-
   for (let i = 0; i < maxI; i++) {
     if (i < gaps.length && i < wasteRows.length) {
       sheet.getRange(wasteRows[i].rowIndex, 6).setValue(minsToTime(gaps[i].start));
@@ -1623,24 +1525,18 @@ function syncWasteTimes(dateStr) {
       rowsToDelete.push(wasteRows[i].rowIndex);
     }
   }
-
-  rowsToDelete.sort(function(a,b) { return b - a; }).forEach(function(r) { sheet.deleteRow(r); });
+  rowsToDelete.sort(function (a, b) { return b - a; }).forEach(function (r) { sheet.deleteRow(r); });
 }
-
 // --- END OF DAY AUTOMATION & DAILY SUMMARY ---
-
 function endOfDayRoutine() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Production_Logs');
   if (!sheet) return;
-  
   const tz = Session.getScriptTimeZone();
   const today = new Date();
   const todayStr = Utilities.formatDate(today, tz, 'yyyy-MM-dd');
-  
   const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
   let updatedActive = false;
-  
   // 1. Force-close any uncompleted Active sessions to 16:30
   for (let i = 0; i < data.length; i++) {
     let rowDate = data[i][3] instanceof Date ? Utilities.formatDate(data[i][3], tz, 'yyyy-MM-dd') : String(data[i][3]).trim();
@@ -1649,7 +1545,6 @@ function endOfDayRoutine() {
       let dur = calculateDuration(sTime, '16:30');
       let oldNotes = data[i][10] || '';
       let newNotes = oldNotes ? oldNotes + '\nإغلاق تلقائي بواسطة النظام' : 'إغلاق تلقائي بواسطة النظام';
-      
       let rowIndex = i + 2;
       sheet.getRange(rowIndex, 7).setValue('16:30'); // Force close at 4:30 PM
       sheet.getRange(rowIndex, 8).setValue(dur);
@@ -1658,58 +1553,51 @@ function endOfDayRoutine() {
       updatedActive = true;
     }
   }
-  
   // 2. Synchronize Waste Times completely for the day
   syncWasteTimes(todayStr);
-  
   // 3. Gather Updated Data for Metric Calculation
   const updatedData = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
   let actualStart = 1440; let actualEnd = 0;
   let totalProd = 0; let totalBreak = 0; let totalWaste = 0;
   let hasData = false;
-  
   let endDayBreaks = [];
-  updatedData.forEach(function(r) {
+  updatedData.forEach(function (r) {
     let rowDate = r[3] instanceof Date ? Utilities.formatDate(r[3], tz, 'yyyy-MM-dd') : String(r[3]).trim();
     if (rowDate === todayStr && r[12] === 'Completed' && r[4] === 'وقت الراحة') {
       let sM = timeToMins(r[5] instanceof Date ? Utilities.formatDate(r[5], tz, 'HH:mm') : String(r[5]));
       let eM = timeToMins(r[6] instanceof Date ? Utilities.formatDate(r[6], tz, 'HH:mm') : String(r[6]));
-      let dur = eM - sM; if(dur < 0) dur += 1440;
-      endDayBreaks.push({start: sM, end: sM + dur});
+      let dur = eM - sM; if (dur < 0) dur += 1440;
+      endDayBreaks.push({ start: sM, end: sM + dur });
     }
   });
-
-  updatedData.forEach(function(r) {
+  updatedData.forEach(function (r) {
     let rowDate = r[3] instanceof Date ? Utilities.formatDate(r[3], tz, 'yyyy-MM-dd') : String(r[3]).trim();
     if (rowDate === todayStr && r[12] === 'Completed') {
       hasData = true;
       let product = r[4];
       let sM = timeToMins(r[5] instanceof Date ? Utilities.formatDate(r[5], tz, 'HH:mm') : String(r[5]));
       let eM = timeToMins(r[6] instanceof Date ? Utilities.formatDate(r[6], tz, 'HH:mm') : String(r[6]));
-      let dur = eM - sM; if(dur < 0) dur += 1440;
+      let dur = eM - sM; if (dur < 0) dur += 1440;
       let absEM = sM + dur;
-      
-      if(sM < actualStart) actualStart = sM;
-      if(eM > actualEnd) actualEnd = eM;
-      
+      if (sM < actualStart) actualStart = sM;
+      if (eM > actualEnd) actualEnd = eM;
+
       if (product === 'وقت مهدر') {
-         totalWaste += dur;
+        totalWaste += dur;
       } else if (product === 'وقت الراحة') {
-         totalBreak += dur;
+        totalBreak += dur;
       } else {
-         let netDur = dur;
-         endDayBreaks.forEach(b => {
-             let oStart = Math.max(sM, b.start);
-             let oEnd = Math.min(absEM, b.end);
-             if (oStart < oEnd) netDur -= (oEnd - oStart);
-         });
-         totalProd += netDur;
+        let netDur = dur;
+        endDayBreaks.forEach(b => {
+          let oStart = Math.max(sM, b.start);
+          let oEnd = Math.min(absEM, b.end);
+          if (oStart < oEnd) netDur -= (oEnd - oStart);
+        });
+        totalProd += netDur;
       }
     }
   });
-  
   if (!hasData) return; // Exit if no activity happened today
-  
   // Apply Flex-Time / Overtime Math
   let shiftStart = (actualStart < 480) ? actualStart : 480;
   let shiftEnd = shiftStart + 510; // 8.5 hours
@@ -1717,7 +1605,6 @@ function endOfDayRoutine() {
   let extraMins = actualEnd > shiftEnd ? actualEnd - shiftEnd : 0;
   let compMins = Math.min(deficit, extraMins);
   let overtimeMins = extraMins - compMins;
-  
   function formatDurSummary(mins) {
     if (!mins) return '0 د';
     let h = Math.floor(mins / 60);
@@ -1726,7 +1613,6 @@ function endOfDayRoutine() {
     if (h > 0) return h + ' س';
     return m + ' د';
   }
-  
   // 4. Update or Create Daily_Summary Sheet
   let summarySheet = ss.getSheetByName('Daily_Summary');
   if (!summarySheet) {
@@ -1734,7 +1620,6 @@ function endOfDayRoutine() {
     summarySheet.appendRow(['التاريخ', 'وقت الإنتاج الفعلي', 'وقت الراحة', 'الوقت المهدر', 'الوقت الإضافي']);
     summarySheet.getRange(1, 1, 1, 5).setFontWeight('bold').setBackground('#f3f4f6');
   }
-  
   // Check if today already exists to prevent duplicate rows
   let sumData = summarySheet.getDataRange().getValues();
   let rowIndexToUpdate = -1;
@@ -1745,22 +1630,22 @@ function endOfDayRoutine() {
       break;
     }
   }
-  
   let rowValues = [
-    todayStr, 
-    formatDurSummary(totalProd), 
-    formatDurSummary(totalBreak), 
-    formatDurSummary(totalWaste), 
+    todayStr,
+    formatDurSummary(totalProd),
+    formatDurSummary(totalBreak),
+    formatDurSummary(totalWaste),
     formatDurSummary(overtimeMins)
   ];
-  
   if (rowIndexToUpdate > -1) {
     summarySheet.getRange(rowIndexToUpdate, 1, 1, 5).setValues([rowValues]);
   } else {
     summarySheet.appendRow(rowValues);
   }
-}
 
+  // 5. AUTO-SYNC: Capture snapshot into Daily_Product_Performance JSON API
+  triggerRetroactiveSync(todayStr, 'النظام التلقائي (Automated)');
+}
 function setupDailyTrigger() {
   // 1. Clean up any existing triggers to prevent duplicates
   const triggers = ScriptApp.getProjectTriggers();
@@ -1769,7 +1654,6 @@ function setupDailyTrigger() {
       ScriptApp.deleteTrigger(triggers[i]);
     }
   }
-  
   // 2. Create the daily trigger to run at 11:55 PM (23:55)
   ScriptApp.newTrigger('endOfDayRoutine')
     .timeBased()
@@ -1778,160 +1662,154 @@ function setupDailyTrigger() {
     .nearMinute(55)
     .create();
 }
-
 // --- EXECUTIVE REPORTING ENGINE (PORTAL C) ---
-
 function getProductionDateRange() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Production_Logs');
   if (!sheet) return { min: '', max: '' };
-
   // Fetch Dates (Col D/Index 3) and Status (Col M/Index 12)
-  const data = sheet.getRange(2, 4, sheet.getLastRow() - 1, 10).getValues(); 
+  const data = sheet.getRange(2, 4, sheet.getLastRow() - 1, 10).getValues();
   const tz = Session.getScriptTimeZone();
   let minDate = null;
   let maxDate = null;
-
   data.forEach(r => {
     if (r[9] !== 'Completed') return; // Only count productive days
     let dObj = new Date(r[0]);
     if (isNaN(dObj.getTime())) return;
-
     if (!minDate || dObj < minDate) minDate = dObj;
     if (!maxDate || dObj > maxDate) maxDate = dObj;
   });
-
   return {
     min: minDate ? Utilities.formatDate(minDate, tz, 'yyyy-MM-dd') : '',
     max: maxDate ? Utilities.formatDate(maxDate, tz, 'yyyy-MM-dd') : ''
   };
 }
-
 function getProductionReportData(filters) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Production_Logs');
   if (!sheet) throw new Error("Sheet not found");
-
   const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
   const tz = Session.getScriptTimeZone();
-
   let kpis = { prod: 0, break: 0, waste: 0, overtime: 0 };
-  let prodMap = {}; 
-  let trendMap = {}; 
+  let prodMap = {};
+  let trendMap = {};
   let productsSet = new Set();
+  let usersSet = new Set();
   let dayGroups = {};
 
   // 1. Filter & Group Chronologically
   data.forEach(r => {
     if (r[12] !== 'Completed') return; // Only process finished sessions
-    
+
     let dateStr = r[3] instanceof Date ? Utilities.formatDate(r[3], tz, 'yyyy-MM-dd') : String(r[3]).trim();
     let product = r[4];
+    let user = r[2];
 
     if (product !== 'وقت مهدر' && product !== 'وقت الراحة') productsSet.add(product);
+    if (user && user !== 'النظام') usersSet.add(user);
 
     if (filters.startDate && dateStr < filters.startDate) return;
     if (filters.endDate && dateStr > filters.endDate) return;
-    
+
+    if (filters.user && filters.user !== 'الكل' && user !== filters.user) return;
+
     if (filters.product && filters.product !== 'الكل') {
-       if (product !== filters.product && product !== 'وقت مهدر' && product !== 'وقت الراحة') return;
-       // Hide general waste/breaks if a specific product is filtered to avoid skewed data
-       if (product === 'وقت مهدر' || product === 'وقت الراحة') return; 
+      if (product !== filters.product && product !== 'وقت مهدر' && product !== 'وقت الراحة') return;
+      // Hide general waste/breaks if a specific product is filtered to avoid skewed data
+      if (product === 'وقت مهدر' || product === 'وقت الراحة') return;
     }
 
     if (!dayGroups[dateStr]) dayGroups[dateStr] = [];
     dayGroups[dateStr].push(r);
   });
-
   // 2. Process Daily Flex-Time Logic
   for (let d in dayGroups) {
     let dayRows = dayGroups[d];
     let actualStart = 1440; let actualEnd = 0;
     let dProd = 0; let dBreak = 0; let dWaste = 0;
-
     // Collect breaks for the day
     let dayBreaks = [];
     dayRows.forEach(r => {
       if (r[4] === 'وقت الراحة') {
         let sM = timeToMins(r[5] instanceof Date ? Utilities.formatDate(r[5], tz, 'HH:mm') : String(r[5]));
         let eM = timeToMins(r[6] instanceof Date ? Utilities.formatDate(r[6], tz, 'HH:mm') : String(r[6]));
-        let dur = eM - sM; if(dur < 0) dur += 1440;
-        dayBreaks.push({start: sM, end: sM + dur});
+        let dur = eM - sM; if (dur < 0) dur += 1440;
+        dayBreaks.push({ start: sM, end: sM + dur });
       }
     });
 
     let prodSessions = [];
-    let minuteMap = new Array(1440).fill(null).map(() => []); 
+    let minuteMap = new Array(1440).fill(null).map(() => []);
 
     dayRows.forEach(r => {
       let sM = timeToMins(r[5] instanceof Date ? Utilities.formatDate(r[5], tz, 'HH:mm') : String(r[5]));
       let eM = timeToMins(r[6] instanceof Date ? Utilities.formatDate(r[6], tz, 'HH:mm') : String(r[6]));
-      let dur = eM - sM; if(dur < 0) dur += 1440;
+      let dur = eM - sM; if (dur < 0) dur += 1440;
       let absEM = sM + dur;
       let product = r[4];
 
-      if(sM < actualStart) actualStart = sM;
-      if(eM > actualEnd) actualEnd = eM;
+      if (sM < actualStart) actualStart = sM;
+      if (eM > actualEnd) actualEnd = eM;
 
       if (product === 'وقت مهدر') {
-         dWaste += dur; kpis.waste += dur;
+        dWaste += dur; kpis.waste += dur;
       } else if (product === 'وقت الراحة') {
-         dBreak += dur; kpis.break += dur;
+        dBreak += dur; kpis.break += dur;
       } else {
-         prodSessions.push({
-            product: product,
-            start: sM,
-            end: absEM,
-            qty: parseFloat(r[8]) || 0,
-            allocatedDur: 0
-         });
+        prodSessions.push({
+          product: product,
+          start: sM,
+          end: absEM,
+          qty: parseFloat(r[8]) || 0,
+          allocatedDur: 0
+        });
       }
     });
 
     // Build the minute map for valid production times
     prodSessions.forEach((session, idx) => {
-       for (let m = session.start; m < session.end; m++) {
-          let minuteOfDay = m % 1440;
-          
-          // Check if this minute overlaps with ANY break (ensuring breaks don't count towards production time)
-          let isBreak = false;
-          for (let b of dayBreaks) {
-             if (m >= b.start && m < b.end) {
-                isBreak = true; break;
-             }
+      for (let m = session.start; m < session.end; m++) {
+        let minuteOfDay = m % 1440;
+
+        // Check if this minute overlaps with ANY break (ensuring breaks don't count towards production time)
+        let isBreak = false;
+        for (let b of dayBreaks) {
+          if (m >= b.start && m < b.end) {
+            isBreak = true; break;
           }
-          
-          if (!isBreak) {
-             minuteMap[minuteOfDay].push(idx);
-          }
-       }
+        }
+
+        if (!isBreak) {
+          minuteMap[minuteOfDay].push(idx);
+        }
+      }
     });
 
     // Calculate fractional durations and absolute factory production time
     for (let m = 0; m < 1440; m++) {
-       let activeCount = minuteMap[m].length;
-       if (activeCount > 0) {
-          dProd += 1; // Exactly 1 minute of net factory uptime
-          kpis.prod += 1;
-          
-          // Dilute the minute equally across all products running at that exact time
-          let fraction = 1 / activeCount;
-          minuteMap[m].forEach(idx => {
-             prodSessions[idx].allocatedDur += fraction;
-          });
-       }
+      let activeCount = minuteMap[m].length;
+      if (activeCount > 0) {
+        dProd += 1; // Exactly 1 minute of net factory uptime
+        kpis.prod += 1;
+
+        // Dilute the minute equally across all products running at that exact time
+        let fraction = 1 / activeCount;
+        minuteMap[m].forEach(idx => {
+          prodSessions[idx].allocatedDur += fraction;
+        });
+      }
     }
 
     // Aggregate the perfectly balanced times back into the product maps
     prodSessions.forEach(session => {
-       let p = session.product;
-       if (!prodMap[p]) prodMap[p] = { qty: 0, dur: 0, breakdown: {} };
-       prodMap[p].qty += session.qty;
-       prodMap[p].dur += session.allocatedDur;
-       
-       if (!prodMap[p].breakdown[d]) prodMap[p].breakdown[d] = { qty: 0, dur: 0 };
-       prodMap[p].breakdown[d].qty += session.qty;
-       prodMap[p].breakdown[d].dur += session.allocatedDur;
+      let p = session.product;
+      if (!prodMap[p]) prodMap[p] = { qty: 0, dur: 0, breakdown: {} };
+      prodMap[p].qty += session.qty;
+      prodMap[p].dur += session.allocatedDur;
+
+      if (!prodMap[p].breakdown[d]) prodMap[p].breakdown[d] = { qty: 0, dur: 0 };
+      prodMap[p].breakdown[d].qty += session.qty;
+      prodMap[p].breakdown[d].dur += session.allocatedDur;
     });
 
     let shiftStart = (actualStart < 480) ? actualStart : 480;
@@ -1943,26 +1821,132 @@ function getProductionReportData(filters) {
 
     // RULE: If NO actual production happened, ignore waste and overtime for this day
     if (dProd === 0) {
-       kpis.waste -= dWaste; // Remove this day's waste from the global KPI tally
-       dWaste = 0;           // Zero it out for the daily chart trend
-       overtimeMins = 0;     // Zero out daily overtime
+      kpis.waste -= dWaste; // Remove this day's waste from the global KPI tally
+      dWaste = 0;           // Zero it out for the daily chart trend
+      overtimeMins = 0;     // Zero out daily overtime
     }
 
     kpis.overtime += overtimeMins;
     trendMap[d] = { date: d, prod: dProd, waste: dWaste, break: dBreak, ot: overtimeMins };
   }
-
   let trendArray = Object.values(trendMap).sort((a, b) => a.date.localeCompare(b.date));
   let productsArray = Object.keys(prodMap).map(p => {
-     let d = prodMap[p];
-     let avg = d.qty > 0 ? (d.dur / d.qty).toFixed(2) : 0;
-     return { name: p, qty: d.qty, dur: d.dur, avg: avg, breakdown: d.breakdown };
-  }).sort((a,b) => b.dur - a.dur);
-
+    let d = prodMap[p];
+    let avg = d.qty > 0 ? (d.dur / d.qty).toFixed(2) : 0;
+    return { name: p, qty: d.qty, dur: d.dur, avg: avg, breakdown: d.breakdown };
+  }).sort((a, b) => b.dur - a.dur);
   return {
-     kpis: kpis,
-     trend: trendArray,
-     products: productsArray,
-     productNames: Array.from(productsSet).sort()
+    kpis: kpis,
+    trend: trendArray,
+    products: productsArray,
+    productNames: Array.from(productsSet).sort(),
+    users: Array.from(usersSet).sort()
   };
+}
+
+// --- RETROACTIVE PERFORMANCE & JSON SYNC ENGINE ---
+
+function formatDurationBackend(mins) {
+  if (!mins || isNaN(mins) || mins === Infinity) return '00:00:00';
+  let totalSeconds = Math.round(mins * 60);
+  let h = Math.floor(totalSeconds / 3600);
+  let m = Math.floor((totalSeconds % 3600) / 60);
+  let s = totalSeconds % 60;
+  return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function triggerRetroactiveSync(startDateStr, triggerSource) {
+  try {
+    let tz = Session.getScriptTimeZone();
+    let todayStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+    let currentDate = new Date(startDateStr);
+    let endDate = new Date(todayStr);
+
+    if (isNaN(currentDate.getTime()) || isNaN(endDate.getTime())) throw new Error("تاريخ غير صالح");
+
+    // Ripple Effect: Sync the edited day and every single day after it up to today
+    while (currentDate <= endDate) {
+      let dStr = Utilities.formatDate(currentDate, tz, 'yyyy-MM-dd');
+      syncPerformanceData(dStr, triggerSource);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    return { success: true, message: 'تمت مزامنة بيانات الأداء بنجاح!' };
+  } catch (e) {
+    throw new Error("خطأ في المزامنة: " + e.message);
+  }
+}
+
+function syncPerformanceData(dateStr, triggerSource) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('Daily_Product_Performance');
+  if (!sheet) {
+    sheet = ss.insertSheet('Daily_Product_Performance');
+    sheet.appendRow(['التاريخ', 'المنتج', 'الكمية المنتجة', 'وقت الإنتاج الصافي', 'الوقت المحمل للوحدة', 'نسبة التكلفة المجمعة', 'وزن تكلفة الوحدة', 'Daily JSON', 'Monthly JSON', 'وقت الحفظ', 'بواسطة']);
+    sheet.getRange(1, 1, 1, 11).setFontWeight('bold').setBackground('#f3f4f6');
+  }
+
+  // 1. Get Daily Data via your existing bulletproof reporting engine
+  let report = getProductionReportData({ startDate: dateStr, endDate: dateStr, product: 'الكل', user: 'الكل' });
+  let totalFactoryTime = report.kpis.prod;
+
+  // 2. Delete existing rows for dateStr (to allow clean Upsert)
+  let data = sheet.getDataRange().getValues();
+  let rowsToDelete = [];
+  for (let i = 1; i < data.length; i++) {
+    let rowDate = data[i][0] instanceof Date ? Utilities.formatDate(data[i][0], Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(data[i][0]).trim();
+    if (rowDate === dateStr) rowsToDelete.push(i + 1);
+  }
+  rowsToDelete.reverse().forEach(r => sheet.deleteRow(r));
+
+  // 3. Prepare new rows & JSONs
+  let timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  let newRows = [];
+  let startOfMonth = dateStr.substring(0, 8) + '01'; // 'YYYY-MM-01'
+
+  // Pre-fetch MTD Factory Time to avoid loop queries
+  let mtdFactoryReport = getProductionReportData({ startDate: startOfMonth, endDate: dateStr, product: 'الكل', user: 'الكل' });
+  let mtdTotalFactoryTime = mtdFactoryReport.kpis.prod;
+
+  report.products.forEach(p => {
+    let aggCostPct = totalFactoryTime > 0 ? (p.dur / totalFactoryTime) * 100 : 0;
+    let unitWeightPct = p.qty > 0 ? (aggCostPct / p.qty) : 0;
+    let loadedTimePerUnit = p.qty > 0 ? (p.dur / p.qty) : 0;
+
+    let dailyJson = {
+      date: dateStr,
+      product: p.name,
+      qty: p.qty,
+      netProdTimeMins: parseFloat(p.dur.toFixed(2)),
+      loadedTimePerUnitMins: parseFloat(loadedTimePerUnit.toFixed(2)),
+      aggCostPct: parseFloat(aggCostPct.toFixed(4)),
+      unitWeightPct: parseFloat(unitWeightPct.toFixed(6))
+    };
+
+    let mtdProduct = mtdFactoryReport.products.find(x => x.name === p.name);
+    let mtdJson = {
+      month: dateStr.substring(0, 7),
+      product: p.name,
+      mtdQty: mtdProduct ? mtdProduct.qty : 0,
+      mtdNetProdTimeMins: mtdProduct ? parseFloat(mtdProduct.dur.toFixed(2)) : 0,
+      mtdTotalFactoryTimeMins: mtdTotalFactoryTime
+    };
+
+    newRows.push([
+      dateStr,
+      p.name,
+      p.qty,
+      formatDurationBackend(p.dur),
+      formatDurationBackend(loadedTimePerUnit),
+      aggCostPct.toFixed(2) + '%',
+      unitWeightPct.toFixed(4) + '%',
+      JSON.stringify(dailyJson),
+      JSON.stringify(mtdJson),
+      timestamp,
+      triggerSource
+    ]);
+  });
+
+  if (newRows.length > 0) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 11).setValues(newRows);
+  }
 }
