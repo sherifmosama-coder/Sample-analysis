@@ -308,27 +308,45 @@
       </div>
 
       <div id="executiveReportSection" style="display: none;" class="mt-4">
-         <div class="bg-white p-4 rounded-xl shadow-sm mb-6 border border-gray-100" style="box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
-            <h3 class="text-sm font-bold text-gray-600 mb-4"><i class="fas fa-filter ml-2 text-blue-500"></i>لوحة التحكم والفلترة</h3>
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-               <div>
-                  <label class="block text-xs font-bold text-gray-500 mb-1">من تاريخ</label>
-                  <input type="date" id="repStartDate" class="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-800">
+         <div class="bg-white p-5 rounded-xl shadow-sm mb-6 border border-slate-200 relative overflow-hidden" style="box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+            <div class="absolute top-0 right-0 left-0 h-1 bg-blue-600"></div>
+            
+            <h3 class="text-sm font-bold text-slate-700 mb-4 relative z-10"><i class="fas fa-filter ml-2 text-blue-500"></i>لوحة التحكم والفلترة</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-5 items-end relative z-10">
+               <div class="md:col-span-2">
+                  <div class="grid grid-cols-2 gap-4">
+                     <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1.5 tracking-wide">من تاريخ</label>
+                        <input type="date" id="repStartDate" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none">
+                     </div>
+                     <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1.5 tracking-wide">إلى تاريخ</label>
+                        <input type="date" id="repEndDate" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none">
+                     </div>
+                  </div>
+                  <div class="flex flex-wrap gap-2 mt-3">
+                     <button onclick="setRepQuickDate('month')" class="px-4 py-1 bg-white border border-slate-200 text-slate-600 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-full text-[11px] font-bold transition-all shadow-sm">الشهر الحالي</button>
+                     <button onclick="setRepQuickDate('week')" class="px-4 py-1 bg-white border border-slate-200 text-slate-600 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-full text-[11px] font-bold transition-all shadow-sm">هذا الأسبوع</button>
+                     <button onclick="setRepQuickDate('today')" class="px-4 py-1 bg-white border border-slate-200 text-slate-600 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-full text-[11px] font-bold transition-all shadow-sm">اليوم</button>
+                     <button onclick="setRepQuickDate('all')" class="px-4 py-1 bg-white border border-slate-200 text-slate-600 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-full text-[11px] font-bold transition-all shadow-sm">كل الفترات</button>
+                  </div>
                </div>
+               
                <div>
-                  <label class="block text-xs font-bold text-gray-500 mb-1">إلى تاريخ</label>
-                  <input type="date" id="repEndDate" class="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-800">
+                  <label class="block text-xs font-bold text-slate-500 mb-1.5 tracking-wide">تصفية بالمنتج</label>
+                  <select id="repProduct" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none">
+                     <option value="الكل">جميع المنتجات</option>
+                  </select>
                </div>
-               <div>
-                  <label class="block text-xs font-bold text-gray-500 mb-1">المنتج</label>
-                  <select id="repProduct" class="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-800"><option value="الكل">الكل</option></select>
-               </div>
-               <div>
-                  <label class="block text-xs font-bold text-gray-500 mb-1">المستخدم / المشغل</label>
-                  <select id="repUser" class="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-800"><option value="الكل">الكل</option></select>
-               </div>
-               <div>
-                  <button onclick="loadExecutiveReport()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow transition border-none"><i class="fas fa-sync-alt ml-2"></i>تحديث التقرير</button>
+               
+               <div class="h-full flex items-start mt-2 md:mt-0 md:items-end gap-2">
+                  <button onclick="loadExecutiveReport()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-2 rounded-lg shadow-md hover:shadow-lg transition-all border-none flex items-center justify-center gap-2 mb-[1px] text-xs">
+                     <i class="fas fa-sync-alt"></i> تحديث
+                  </button>
+                  <button onclick="manualSyncPerformance()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-2 rounded-lg shadow-md hover:shadow-lg transition-all border-none flex items-center justify-center gap-2 mb-[1px] text-xs" title="اعتماد وحفظ بيانات التكاليف للتواريخ المحددة وما يليها">
+                     <i class="fas fa-database"></i> أرشفة
+                  </button>
                </div>
             </div>
          </div>
@@ -339,28 +357,28 @@
                   <span class="text-sm font-black text-gray-800">إجمالي الإنتاج</span>
                   <i class="fas fa-calculator text-green-500 text-[11px]"></i>
                </div>
-               <span id="repKpiProd" class="text-base font-black text-gray-800 mt-auto">0 د</span>
+               <span id="repKpiProd" class="text-base font-black text-gray-800 mt-auto">00:00:00</span>
             </div>
             <div class="flex-1 min-w-[130px] bg-white p-3 rounded-lg border-[3px] border-red-500 flex flex-col gap-1 shadow-sm">
                <div class="flex items-center justify-between mb-1">
                   <span class="text-sm font-black text-gray-800">إجمالي المهدر</span>
                   <i class="fas fa-exclamation-triangle text-red-500 text-[11px]"></i>
                </div>
-               <span id="repKpiWaste" class="text-base font-black text-gray-800 mt-auto">0 د</span>
+               <span id="repKpiWaste" class="text-base font-black text-gray-800 mt-auto">00:00:00</span>
             </div>
             <div class="flex-1 min-w-[130px] bg-white p-3 rounded-lg border-[3px] border-amber-400 flex flex-col gap-1 shadow-sm">
                <div class="flex items-center justify-between mb-1">
                   <span class="text-sm font-black text-gray-800">وقت الراحة</span>
                   <i class="fas fa-mug-hot text-amber-500 text-[11px]"></i>
                </div>
-               <span id="repKpiBreak" class="text-base font-black text-gray-800 mt-auto">0 د</span>
+               <span id="repKpiBreak" class="text-base font-black text-gray-800 mt-auto">00:00:00</span>
             </div>
             <div class="flex-1 min-w-[130px] bg-white p-3 rounded-lg border-[3px] border-purple-600 flex flex-col gap-1 shadow-sm">
                <div class="flex items-center justify-between mb-1">
                   <span class="text-sm font-black text-gray-800">وقت إضافي</span>
                   <i class="fas fa-clock text-purple-500 text-[11px]"></i>
                </div>
-               <span id="repKpiOt" class="text-base font-black text-gray-800 mt-auto">0 د</span>
+               <span id="repKpiOt" class="text-base font-black text-gray-800 mt-auto">00:00:00</span>
             </div>
             <div class="flex-1 min-w-[130px] bg-gradient-to-br from-blue-50 to-blue-100 p-3 rounded-lg border-[3px] border-blue-800 flex flex-col gap-1 shadow-sm">
                <div class="flex items-center justify-between mb-1">
@@ -378,36 +396,71 @@
                   <canvas id="repDoughnutChart"></canvas>
                </div>
             </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
-               <h3 class="text-sm font-bold text-gray-600 w-full mb-2 border-b pb-2">المنحنى الزمني (يومياً)</h3>
-               <div class="w-full h-64 relative">
-                  <canvas id="repTrendChart"></canvas>
-               </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 lg:col-span-2 flex flex-col">
+               <h3 class="text-sm font-bold text-gray-600 w-full mb-2 border-b pb-2">
+                  <i class="fas fa-coins text-blue-500 ml-1"></i> نسب توزيع التكاليف والأوقات
+               </h3>
+               <div id="costAllocationGrid" class="w-full overflow-y-auto pr-2" style="max-height: 380px; display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px; align-content: start; grid-auto-rows: minmax(90px, auto);">
+                  </div>
             </div>
          </div>
 
          <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="p-4 border-b border-gray-100 bg-gray-50">
-               <h3 class="text-sm font-bold text-gray-600 mb-0"><i class="fas fa-list ml-2 text-blue-500"></i>تفصيل الأداء حسب المنتج</h3>
+            <div class="p-4 border-b border-gray-100 bg-slate-50">
+               <h3 class="text-sm font-bold text-slate-700 mb-0"><i class="fas fa-list ml-2 text-blue-500"></i>جدول التكاليف التشغيلية وتفصيل الأداء</h3>
             </div>
-            <div class="overflow-x-auto">
-               <table class="w-full text-sm text-right text-gray-500">
-                  <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+            <div class="overflow-x-auto" style="max-height: 500px; overflow-y: auto;">
+               <table class="w-full text-sm text-right text-slate-600 border-collapse">
+                  <thead class="text-[11px] text-slate-600 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm">
                      <tr>
-                        <th scope="col" class="px-6 py-3 border-l border-gray-200">المنتج</th>
-                        <th scope="col" class="px-6 py-3 border-l border-gray-200 text-center">إجمالي الكمية</th>
-                        <th scope="col" class="px-6 py-3 border-l border-gray-200 text-center">الوقت المستغرق</th>
-                        <th scope="col" class="px-6 py-3 text-center bg-blue-50">المتوسط (دقيقة/وحدة)</th>
+                        <th scope="col" class="px-4 py-4 border-b border-l border-slate-200 font-black tracking-wider whitespace-nowrap">المنتج</th>
+                        <th scope="col" class="px-4 py-4 border-b border-l border-slate-200 text-center font-black tracking-wider whitespace-nowrap">الكمية المنتجة</th>
+                        <th scope="col" class="px-4 py-4 border-b border-l border-slate-200 text-center font-black tracking-wider whitespace-nowrap">وقت الإنتاج الصافي</th>
+                        <th scope="col" class="px-4 py-4 border-b border-l border-slate-200 text-center font-black tracking-wider bg-blue-50 text-blue-800 whitespace-nowrap">نسبة التكلفة المجمعة</th>
+                        <th scope="col" class="px-4 py-4 border-b border-l border-slate-200 text-center font-black tracking-wider bg-green-50 text-green-800 whitespace-nowrap">الوقت المحمل للوحدة</th>
+                        <th scope="col" class="px-4 py-4 border-b border-slate-200 text-center font-black tracking-wider bg-purple-50 text-purple-800 whitespace-nowrap">وزن تكلفة الوحدة</th>
                      </tr>
                   </thead>
-                  <tbody id="repProductTable" class="divide-y divide-gray-200 bg-white">
-                     <tr><td colspan="4" class="px-6 py-10 text-center text-gray-400">جاري تحميل البيانات...</td></tr>
+                  <tbody id="repProductTable" class="bg-white">
+                     <tr><td colspan="6" class="px-6 py-10 text-center text-slate-400">جاري تحميل البيانات...</td></tr>
                   </tbody>
                </table>
             </div>
          </div>
       </div>
       </div>
+  </div>
+
+  <div id="productDetailsModal" class="modal-overlay" style="display: none; z-index: 9999; backdrop-filter: blur(4px);">
+    <div class="modal-content" style="max-width: 600px; border-radius: 16px; padding: 0; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
+      
+      <div style="background: linear-gradient(to left, #1e3a8a, #3b82f6); padding: 20px; color: white; display: flex; justify-content: space-between; align-items: center;">
+        <h3 id="productDetailsTitle" style="margin: 0; font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; gap: 10px;">
+          <i class="fas fa-box-open"></i> تفاصيل الإنتاج
+        </h3>
+        <button onclick="document.getElementById('productDetailsModal').style.display='none'" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      
+      <div id="modalSummaryCards" style="display: flex; gap: 10px; padding: 15px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+         </div>
+
+      <div class="table-responsive" style="max-height: 400px; overflow-y: auto; padding: 0 20px 20px 20px;">
+        <table style="width: 100%; text-align: right; border-collapse: separate; border-spacing: 0;">
+          <thead style="position: sticky; top: 0; background: white; z-index: 10;">
+            <tr>
+              <th style="padding: 15px 10px; color: #64748b; font-size: 0.85rem; border-bottom: 2px solid #e2e8f0;">التاريخ</th>
+              <th style="padding: 15px 10px; color: #64748b; font-size: 0.85rem; border-bottom: 2px solid #e2e8f0; text-align: center;">الكمية</th>
+              <th style="padding: 15px 10px; color: #64748b; font-size: 0.85rem; border-bottom: 2px solid #e2e8f0; text-align: center;">الوقت</th>
+              <th style="padding: 15px 10px; color: #64748b; font-size: 0.85rem; border-bottom: 2px solid #e2e8f0; text-align: center;">المتوسط</th>
+            </tr>
+          </thead>
+          <tbody id="productDetailsBody">
+            </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <div id="imagePreviewModal" class="modal-overlay" style="display: none; z-index: 9999;">
@@ -528,6 +581,11 @@
         <div class="dashboard-loading"><i class="fas fa-spinner fa-spin"></i><span>جاري التحميل...</span></div>
       </div>
       
+      <h3 class="sessions-section-title" style="margin-top: 30px;"><i class="fas fa-pause-circle text-orange-500"></i> التشغيلات المعلقة (قيد الانتظار)</h3>
+      <div id="pausedSessionsList" class="sessions-grid" style="margin-bottom: 30px;">
+         <div style="grid-column: 1 / -1; text-align: center; color: #94a3b8; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1;">لا توجد تشغيلات معلقة حالياً</div>
+      </div>
+      
       <h3 class="sessions-section-title"><i class="fas fa-check-circle" style="color:var(--green);"></i> التشغيلات المكتملة</h3>
       <div id="historySessionsList" class="sessions-grid"></div>
     </div>
@@ -554,38 +612,107 @@
     </div>
   </div>
 
-  <div id="endModal" class="modal-overlay" style="display: none;">
-    <div class="modal-content">
-      <h3 style="margin-bottom:15px; color:var(--dark-blue);"><i class="fas fa-stop-circle"></i> إنهاء التشغيلة</h3>
-      <input type="hidden" id="endSessionId">
-      <div class="form-group">
-        <label class="form-label">وقت الإنهاء *</label>
-        <div style="display:flex; gap:10px;">
-          <input type="time" id="prodEndTime" class="form-control">
-          <button class="btn btn-secondary" style="white-space:nowrap; padding: 10px 15px;" onclick="setNow('prodEndTime')">الآن</button>
+  <div id="endModal" class="modal-overlay" style="display: none; z-index: 1000;">
+    <div class="modal-content" style="max-width: 500px; padding: 0; overflow: hidden; border-radius: 12px;">
+      
+      <div style="background: #f8fafc; padding: 15px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; color: var(--dark-blue); font-size: 1.1rem;"><i class="fas fa-tasks text-blue-500"></i> إجراءات التشغيلة</h3>
+        <button onclick="document.getElementById('endModal').style.display='none'" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1.2rem; padding: 0; transition: color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'"><i class="fas fa-times"></i></button>
+      </div>
+
+      <div style="padding: 10px; max-height: 80vh; overflow-y: auto;">
+        <input type="hidden" id="endSessionId">
+        <input type="hidden" id="endSessionAction">
+
+        <div id="endModalStep1">
+          <p style="text-align: right; color: #64748b; margin-bottom: 20px; font-size: 0.9rem; font-weight: bold;">يرجى تحديد الإجراء المطلوب:</p>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            
+            <button onclick="goToEndStep2('complete')" style="width: 100%; padding: 15px; text-align: right; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 15px;" onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';" onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
+              <i class="fas fa-check-circle" style="color: #10b981; font-size: 1.8rem;"></i>
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-weight: 900; color: #334155; font-size: 1.05rem;">إنهاء الدفعة بنجاح</span>
+                <span style="color: #94a3b8; font-size: 0.75rem;">استكمال الكمية وإغلاق الجلسة</span>
+              </div>
+            </button>
+            
+            <div style="display: flex; gap: 12px;">
+              <button onclick="goToEndStep2('pause')" style="flex: 2; padding: 12px 15px; text-align: right; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 12px;" onmouseover="this.style.background='#fff7ed'; this.style.borderColor='#fed7aa';" onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
+                <i class="fas fa-pause-circle" style="color: #f97316; font-size: 1.4rem;"></i>
+                <div style="display: flex; flex-direction: column;">
+                  <span style="font-weight: 900; color: #334155; font-size: 0.95rem;">إيقاف مؤقت</span>
+                  <span style="color: #94a3b8; font-size: 0.7rem;">تعليق للوقت الحالي</span>
+                </div>
+              </button>
+              
+              <button onclick="goToEndStep2('cancel')" style="flex: 1; padding: 12px 10px; text-align: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;" onmouseover="this.style.background='#fef2f2'; this.style.borderColor='#fecaca';" onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
+                <i class="fas fa-times-circle" style="color: #ef4444; font-size: 1.2rem;"></i>
+                <span style="font-weight: 900; color: #ef4444; font-size: 0.85rem;">إلغاء التشغيلة</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="endModalStep2" style="display: none;">
+          <div id="step2Alert" style="margin-bottom: 15px; padding: 10px 15px; border-radius: 8px; font-size: 0.85rem; font-weight: bold; border: 1px solid transparent;"></div>
+
+          <div class="form-group">
+            <label class="form-label">تحديد الوقت *</label>
+            <div style="display:flex; gap:10px;">
+              <input type="time" id="prodEndTime" class="form-control">
+              <button class="btn btn-secondary" style="white-space:nowrap; padding: 10px 15px;" onclick="setNow('prodEndTime')">الآن</button>
+            </div>
+          </div>
+          
+          <div class="form-group" id="qtyGroup">
+            <label class="form-label text-blue-700 font-bold">الكمية المنتجة *</label>
+            <input type="number" id="prodEndQty" class="form-control" min="1" placeholder="مثال: 500">
+          </div>
+          
+          <div class="form-group" id="notesGroup">
+            <label class="form-label font-bold" id="notesLabel">ملاحظات</label>
+            <input type="text" id="prodEndNotes" class="form-control" placeholder="اذكر التفاصيل هنا...">
+          </div>
+          
+          <div class="form-group" id="imageGroup">
+            <label class="form-label"><i class="fas fa-camera"></i> صورة لتوثيق الدفعة (اختياري)</label>
+            <div class="image-upload-area">
+              <input type="file" id="prodImageInput" accept="image/*" capture="environment" style="display: none;" onchange="previewProdImage(event)">
+              <button type="button" class="btn-upload" onclick="document.getElementById('prodImageInput').click()">
+                <i class="fas fa-camera"></i> التقاط أو إرفاق صورة
+              </button>
+              <img id="prodPreviewImg" src="" style="display:none; max-width:100%; margin-top:10px; border-radius:8px;">
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 10px; margin-top: 25px;">
+            <button class="btn btn-success" style="flex: 2;" id="btnConfirmAction" onclick="submitStep2Action()">تأكيد</button>
+            <button class="btn btn-secondary" style="flex: 1; background: #f8fafc; color: #475569; border-color: #cbd5e1; font-weight: bold;" onclick="goBackToEndStep1()"><i class="fas fa-arrow-right"></i> رجوع</button>
+          </div>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">الكمية المنتجة *</label>
-        <input type="number" id="prodEndQty" class="form-control" min="1" placeholder="مثال: 500">
+    </div>
+  </div>
+
+  <div id="resumeModal" class="modal-overlay" style="display: none; z-index: 1000;">
+    <div class="modal-content" style="padding: 0; overflow: hidden; border-radius: 12px;">
+      <div style="background: #f8fafc; padding: 15px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="margin: 0; color:#10b981; font-size: 1.1rem;"><i class="fas fa-play"></i> استئناف التشغيلة المعلقة</h3>
+        <button onclick="document.getElementById('resumeModal').style.display='none'" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1.2rem; padding: 0; transition: color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'"><i class="fas fa-times"></i></button>
       </div>
+      <div style="padding: 0 20px 20px 20px;">
+      <input type="hidden" id="resumeSessionId">
       <div class="form-group">
-        <label class="form-label">ملاحظات</label>
-        <input type="text" id="prodEndNotes" class="form-control" placeholder="ملاحظات إضافية (اختياري)">
-      </div>
-      <div class="form-group">
-        <label class="form-label"><i class="fas fa-camera"></i> صورة لتوثيق الدفعة (اختياري)</label>
-        <div class="image-upload-area">
-          <input type="file" id="prodImageInput" accept="image/*" capture="environment" style="display: none;" onchange="previewProdImage(event)">
-          <button type="button" class="btn-upload" onclick="document.getElementById('prodImageInput').click()">
-            <i class="fas fa-camera"></i> التقاط أو إرفاق صورة
-          </button>
-          <img id="prodPreviewImg" src="" style="display:none; max-width:100%; margin-top:10px; border-radius:8px;">
+        <label class="form-label">وقت البدء (الاستئناف) *</label>
+        <div style="display:flex; gap:10px;">
+          <input type="time" id="prodResumeTime" class="form-control">
+          <button class="btn btn-secondary" style="white-space:nowrap; padding: 10px 15px;" onclick="setNow('prodResumeTime')">الآن</button>
         </div>
       </div>
       <div class="button-group">
-        <button class="btn btn-success" onclick="submitEndProd()">إنهاء وحفظ</button>
-        <button class="btn btn-secondary" onclick="document.getElementById('endModal').style.display='none'">إلغاء</button>
+        <button class="btn btn-success" onclick="submitResumeProd()">تأكيد الاستئناف</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('resumeModal').style.display='none'">إلغاء</button>
+        </div>
       </div>
     </div>
   </div>
@@ -617,21 +744,35 @@
       </div>
     </div>
   </div>
+  
 
-  <div id="endBreakModal" class="modal-overlay" style="display: none;">
-    <div class="modal-content">
-      <h3 style="margin-bottom:15px; color:#d97706;"><i class="fas fa-stop-circle"></i> إنهاء وقت الراحة</h3>
+  <div id="endBreakModal" class="modal-overlay" style="display: none; z-index: 1000;">
+    <div class="modal-content" style="padding: 0; overflow: hidden; border-radius: 12px;">
+      <div style="background: #f8fafc; padding: 15px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="margin: 0; color:#d97706; font-size: 1.1rem;"><i class="fas fa-stop-circle"></i> خيارات وقت الراحة</h3>
+        <button onclick="document.getElementById('endBreakModal').style.display='none'" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1.2rem; padding: 0; transition: color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'"><i class="fas fa-times"></i></button>
+      </div>
+      <div style="padding: 0 20px 20px 20px;">
       <input type="hidden" id="endBreakSessionId">
+      
       <div class="form-group">
-        <label class="form-label">وقت الإنهاء *</label>
+        <label class="form-label">تحديد الوقت *</label>
         <div style="display:flex; gap:10px;">
           <input type="time" id="endBreakTime" class="form-control">
           <button class="btn btn-secondary" style="white-space:nowrap; padding: 10px 15px;" onclick="setNow('endBreakTime')">الآن</button>
         </div>
       </div>
-      <div class="button-group">
-        <button class="btn btn-success" onclick="submitEndBreak()">إنهاء وحفظ</button>
-        <button class="btn btn-secondary" onclick="document.getElementById('endBreakModal').style.display='none'">إلغاء</button>
+      
+      <div class="form-group">
+        <label class="form-label text-red-600 font-bold">سبب الإلغاء (مطلوب عند <span class="text-red-500">إلغاء الراحة</span>)</label>
+        <input type="text" id="endBreakNotes" class="form-control border-red-200" placeholder="اذكر السبب هنا...">
+      </div>
+      
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+        <button class="btn btn-success" style="width: 100%;" onclick="submitEndBreakAction('complete')"><i class="fas fa-check"></i> إنهاء الراحة والعودة للعمل</button>
+        <button class="btn" style="width: 100%; background-color: #ef4444; color: white;" onclick="submitEndBreakAction('cancel')"><i class="fas fa-trash-alt"></i> إلغاء وقت الراحة (تم بالخطأ)</button>
+        <button class="btn btn-secondary" style="width: 100%;" onclick="document.getElementById('endBreakModal').style.display='none'">تراجع (إغلاق النافذة)</button>
+        </div>
       </div>
     </div>
   </div>
@@ -654,8 +795,9 @@
       
       <div id="editCompletedFields">
         <div class="form-group" id="editQtyGroup">
-          <label class="form-label">الكمية *</label>
-          <input type="number" id="editQty" class="form-control">
+          <label class="form-label text-blue-700 font-bold">إجمالي كمية الدفعة (لكل الفترات) *</label>
+          <input type="number" id="editTotalQty" class="form-control" step="0.1" placeholder="أدخل إجمالي الكمية">
+          <div style="font-size: 0.8rem; color: #64748b; margin-top: 6px; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">الكمية المخصصة لهذه الفترة فقط: <span id="editSegmentQty" class="font-black text-blue-800">0</span> وحدة</div>
         </div>
         <div class="form-group">
           <label class="form-label">ملاحظات / تبرير</label>
@@ -850,9 +992,17 @@
   function renderProdSessions() {
     const activeList = document.getElementById('activeSessionsList');
     const historyList = document.getElementById('historySessionsList');
-    activeList.innerHTML = ''; historyList.innerHTML = '';
+    const pausedList = document.getElementById('pausedSessionsList');
+    if(activeList) activeList.innerHTML = ''; 
+    if(historyList) historyList.innerHTML = '';
+    if(pausedList) pausedList.innerHTML = '';
     
-    let hasActive = false; let hasHistory = false;
+    // CRITICAL FIX: Completely purge 'Cancelled' sessions before any math or rendering occurs
+    if (typeof prodDataList !== 'undefined' && Array.isArray(prodDataList)) {
+        prodDataList = prodDataList.filter(s => s.status !== 'Cancelled' && s.status !== 'ملغي');
+    }
+
+    let hasActive = false; let hasHistory = false; let hasPaused = false;
     let nowMins = getMins(new Date().toTimeString().substring(0,5));
     
     // KPI Data Gathering
@@ -1127,12 +1277,31 @@
             '<div class="prod-detail"><span>المستخدم:</span><span>' + session.user + '</span></div>' +
             '<hr style="border:0; border-top:1px solid #e5e7eb; margin:10px 0;">' +
             '<div style="display:flex; gap:10px; margin-top:auto;">' +
-              '<button class="btn btn-primary btn-sm" style="flex:2;" onclick="openEndModal(\'' + session.id + '\')"><i class="fas fa-flag-checkered"></i> إنهاء التشغيلة</button>' +
+              '<button class="btn btn-primary btn-sm" style="flex:2;" onclick="openEndModal(\'' + session.id + '\')"><i class="fas fa-flag-checkered"></i> إجراءات التشغيلة</button>' +
               '<button class="btn btn-secondary btn-sm" style="flex:1;" onclick="openEditModal(\'' + session.id + '\')"><i class="fas fa-edit"></i> تعديل</button>' +
             '</div>' + historyBtnHTML +
           '</div>';
         activeList.appendChild(card);
-      } else {
+      } else if (session.status === 'Paused') {
+        if (session.product === 'وقت الراحة') return;
+        hasPaused = true;
+        card.className = cardClass;
+        card.style.border = '2px dashed #f97316';
+        card.innerHTML = 
+          '<div class="prod-card-header" style="margin-bottom:10px; padding-bottom:5px;">' +
+            '<span class="prod-title">' + iconHTML + session.product + '</span><span class="prod-status bg-orange-100 text-orange-800 border border-orange-200">معلق مؤقتاً</span>' +
+          '</div>' +
+          '<div class="prod-card-body">' + timeChips +
+            '<div class="prod-detail"><span>المستخدم:</span><span>' + session.user + '</span></div>' +
+            (session.notes ? '<div class="prod-detail" style="margin-top:8px; flex-direction:column; background:#fff7ed; padding:5px; border-radius:4px;"><span style="color:#ea580c; font-size:10px; font-weight:bold;">آخر ملاحظة:</span><span style="font-weight:normal; font-size:11px;">' + session.notes + '</span></div>' : '') +
+            '<hr style="border:0; border-top:1px dashed #fdba74; margin:10px 0;">' +
+            '<div style="display:flex; gap:10px; margin-top:auto;">' +
+              '<button class="btn btn-sm" style="flex:2; background:#10b981; color:white; border:none;" onclick="openResumeModal(\'' + session.id + '\')"><i class="fas fa-play"></i> استئناف العمل</button>' +
+              '<button class="btn btn-sm" style="flex:1; background:#ef4444; color:white; border:none;" onclick="openEndModal(\'' + session.id + '\')"><i class="fas fa-stop"></i> خيارات أخرى</button>' +
+            '</div>' + historyBtnHTML +
+          '</div>';
+        if(pausedList) pausedList.appendChild(card);
+      } else if (session.status === 'Completed') {
         if (session.product === 'وقت مهدر' || session.product === 'وقت الراحة') return;
         hasHistory = true;
         card.className = cardClass;
@@ -1154,6 +1323,7 @@
     });
     
     if(!hasActive) activeList.innerHTML = '<div style="text-align:center; color:#9ca3af; padding:30px 20px; grid-column: 1 / -1;">لا توجد تشغيلات نشطة</div>';
+    if(pausedList && !hasPaused) pausedList.innerHTML = '<div style="text-align:center; color:#9ca3af; padding:20px; background:#f8fafc; border-radius:8px; border:1px dashed #cbd5e1; grid-column: 1 / -1;">لا توجد تشغيلات معلقة حالياً</div>';
     if(!hasHistory) historyList.innerHTML = '<div style="text-align:center; color:#9ca3af; padding:30px 20px; grid-column: 1 / -1;">لم يتم استكمال أي تشغيلة اليوم</div>';
   }
 
@@ -1216,31 +1386,151 @@
     reader.readAsDataURL(file);
   }
 
-  function submitEndProd() {
+  // --- 2-STEP MODAL UI LOGIC ---
+  
+  // Override openEndModal to always start fresh on Step 1
+  window.openEndModal = function(id) {
+    document.getElementById('endSessionId').value = id;
+    document.getElementById('prodEndTime').value = '';
+    document.getElementById('prodEndQty').value = '';
+    document.getElementById('prodEndNotes').value = '';
+    
+    document.getElementById('endModalStep1').style.display = 'block';
+    document.getElementById('endModalStep2').style.display = 'none';
+    document.getElementById('endModal').style.display = 'flex';
+  };
+
+  function goToEndStep2(action) {
+    document.getElementById('endSessionAction').value = action;
+    document.getElementById('endModalStep1').style.display = 'none';
+    document.getElementById('endModalStep2').style.display = 'block';
+    
+    const qtyGroup = document.getElementById('qtyGroup');
+    const notesGroup = document.getElementById('notesGroup');
+    const imageGroup = document.getElementById('imageGroup');
+    const notesLabel = document.getElementById('notesLabel');
+    const step2Alert = document.getElementById('step2Alert');
+    const btnConfirm = document.getElementById('btnConfirmAction');
+    
+    if (action === 'complete') {
+      qtyGroup.style.display = 'block';
+      imageGroup.style.display = 'block';
+      notesLabel.innerHTML = 'ملاحظات إضافية (اختياري)';
+      step2Alert.style.background = '#ecfdf5'; step2Alert.style.color = '#065f46'; step2Alert.style.borderColor = '#a7f3d0';
+      step2Alert.innerHTML = '<i class="fas fa-check-circle"></i> جاري إنهاء الدفعة بالكامل واستكمال الكمية.';
+      btnConfirm.className = 'btn btn-success';
+      btnConfirm.innerHTML = '<i class="fas fa-check"></i> تأكيد الإنهاء';
+    } else if (action === 'pause') {
+      qtyGroup.style.display = 'none';
+      imageGroup.style.display = 'none';
+      notesLabel.innerHTML = 'سبب الإيقاف <span style="color:#ef4444;">(مطلوب)</span>';
+      step2Alert.style.background = '#fff7ed'; step2Alert.style.color = '#9a3412'; step2Alert.style.borderColor = '#fed7aa';
+      step2Alert.innerHTML = '<i class="fas fa-pause-circle"></i> جاري الإيقاف المؤقت (يمكنك استئنافه لاحقاً).';
+      btnConfirm.className = 'btn';
+      btnConfirm.style.background = '#f97316'; btnConfirm.style.color = 'white';
+      btnConfirm.innerHTML = '<i class="fas fa-pause"></i> تأكيد الإيقاف';
+    } else if (action === 'cancel') {
+      qtyGroup.style.display = 'none';
+      imageGroup.style.display = 'none';
+      notesLabel.innerHTML = 'سبب الإلغاء <span style="color:#ef4444;">(مطلوب)</span>';
+      step2Alert.style.background = '#fef2f2'; step2Alert.style.color = '#991b1b'; step2Alert.style.borderColor = '#fecaca';
+      step2Alert.innerHTML = '<i class="fas fa-times-circle"></i> جاري إلغاء التشغيلة نهائياً (تجاهل الوقت بالكامل).';
+      btnConfirm.className = 'btn';
+      btnConfirm.style.background = '#ef4444'; btnConfirm.style.color = 'white';
+      btnConfirm.innerHTML = '<i class="fas fa-trash-alt"></i> تأكيد الإلغاء';
+    }
+  }
+
+  function goBackToEndStep1() {
+    document.getElementById('endModalStep2').style.display = 'none';
+    document.getElementById('endModalStep1').style.display = 'block';
+  }
+
+  function submitStep2Action() {
+    const action = document.getElementById('endSessionAction').value;
+    submitProdAction(action);
+  }
+
+  // --- END 2-STEP MODAL UI LOGIC ---
+
+function submitProdAction(action) {
     const eTime = document.getElementById('prodEndTime').value;
     const qty = document.getElementById('prodEndQty').value;
-    if(!eTime || !qty) return alert("يرجى إدخال وقت الإنهاء والكمية المنتجة");
+    const notes = document.getElementById('prodEndNotes').value;
+
+    if (!eTime) return alert("يرجى إدخال الوقت المحدد");
+    if (action === 'complete' && !qty) return alert("يرجى إدخال الكمية المنتجة قبل الإنهاء");
+    if ((action === 'pause' || action === 'cancel') && !notes) return alert("يرجى ذكر السبب في حقل الملاحظات");
     
     document.getElementById('endModal').style.display = 'none';
     showLoading();
     
     const data = {
       sessionId: document.getElementById('endSessionId').value,
-      user: currentUser, endTime: eTime, quantity: parseFloat(qty),
-      notes: document.getElementById('prodEndNotes').value
+      user: currentUser, endTime: eTime, quantity: parseFloat(qty) || 0,
+      notes: notes, action: action
     };
     
     if (uploadedProdImage) {
       google.script.run
         .withSuccessHandler(function(res) {
           data.imageUrl = res.url;
-          finalizeEndProd(data);
+          finalizeEndProd(data); // Safely utilizes your existing finalize hook
         })
         .withFailureHandler(function(e) { hideLoading(); alert("خطأ في رفع الصورة: " + e.message); finalizeEndProd(data); })
         .uploadImageToDrive(uploadedProdImage, 'Prod_' + data.sessionId + '.jpg');
     } else {
       finalizeEndProd(data);
     }
+  }
+
+  function submitResumeProd() {
+    const rTime = document.getElementById('prodResumeTime').value;
+    if(!rTime) return alert("يرجى تحديد وقت الاستئناف");
+
+    document.getElementById('resumeModal').style.display = 'none';
+    showLoading();
+
+    const data = {
+        sessionId: document.getElementById('resumeSessionId').value,
+        user: currentUser,
+        resumeTime: rTime
+    };
+
+    google.script.run
+      .withSuccessHandler(function(res){ hideLoading(); loadProdSessions(); })
+      .withFailureHandler(function(e){ hideLoading(); alert("خطأ: " + e.message); })
+      .resumeProdSession(data);
+  }
+
+  function openResumeModal(id) {
+    document.getElementById('resumeSessionId').value = id;
+    document.getElementById('prodResumeTime').value = '';
+    document.getElementById('resumeModal').style.display = 'flex';
+  }
+
+  function submitEndBreakAction(action) {
+    const eTime = document.getElementById('endBreakTime').value;
+    const notes = document.getElementById('endBreakNotes').value;
+
+    if(!eTime) return alert("يرجى تحديد الوقت");
+    if(action === 'cancel' && !notes) return alert("يرجى ذكر سبب إلغاء وقت الراحة");
+
+    document.getElementById('endBreakModal').style.display = 'none';
+    showLoading();
+
+    const data = {
+        sessionId: document.getElementById('endBreakSessionId').value,
+        user: currentUser,
+        endTime: eTime,
+        notes: notes,
+        action: action
+    };
+
+    google.script.run
+      .withSuccessHandler(function(res){ hideLoading(); loadProdSessions(); })
+      .withFailureHandler(function(e){ hideLoading(); alert("خطأ: " + e.message); })
+      .endBreakSession(data);
   }
 
   function finalizeEndProd(data) {
@@ -1325,7 +1615,15 @@
       document.getElementById('editTimeFields').style.display = 'block';
       document.getElementById('editEndTimeGroup').style.display = 'block';
       document.getElementById('editEndTime').value = session.endTime;
-      document.getElementById('editQty').value = session.quantity;
+      
+      // Calculate Total Batch Quantity by summing all segments of this session
+      let batchTotalQty = 0;
+      prodDataList.forEach(function(s) {
+         if (s.id === id && s.quantity) batchTotalQty += parseFloat(s.quantity);
+      });
+      
+      document.getElementById('editTotalQty').value = parseFloat(batchTotalQty.toFixed(1));
+      document.getElementById('editSegmentQty').textContent = parseFloat(session.quantity || 0).toFixed(1);
       document.getElementById('editQtyGroup').style.display = 'block';
     }
     
@@ -1366,7 +1664,7 @@
       });
     } else {
       const eTime = document.getElementById('editEndTime').value;
-      const nQty = document.getElementById('editQty').value;
+      const nQty = document.getElementById('editTotalQty').value; // Grab the global total
       
       if(!eTime || !nQty) return alert("يرجى ملء الحقول الإجبارية (الأوقات والكمية)");
       
@@ -1376,7 +1674,7 @@
         isActiveEdit: false,
         newStartTime: sTime,
         newEndTime: eTime,
-        newQuantity: parseFloat(nQty),
+        newTotalQuantity: parseFloat(nQty), // Send as newTotalQuantity
         newNotes: document.getElementById('editNotes').value
       };
 
@@ -1506,8 +1804,49 @@
   
   // Executive Report Variables
   let repDoughnutInstance = null;
-  let repTrendInstance = null;
   let filtersLoaded = false;
+
+  function setRepQuickDate(type) {
+    const today = new Date();
+    const startInput = document.getElementById('repStartDate');
+    const endInput = document.getElementById('repEndDate');
+    
+    if (type === 'all') {
+        startInput.value = '';
+        endInput.value = '';
+        document.getElementById('repProductTable').innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-400"><i class="fas fa-spinner fa-spin text-2xl mb-2"></i><br>جاري جلب السجلات...</td></tr>';
+        
+        google.script.run.withSuccessHandler(function(res) {
+            if (res.min) startInput.value = res.min;
+            if (res.max) endInput.value = res.max;
+            loadExecutiveReport();
+        }).getProductionDateRange();
+        return;
+    }
+    
+    let start = new Date();
+    let end = new Date();
+    
+    if (type === 'today') {
+        // Keep as today
+    } else if (type === 'week') {
+        let day = today.getDay(); // 0 is Sunday, 6 is Saturday
+        let diff = day === 6 ? 0 : day + 1; // Subtract to reach last Saturday
+        start.setDate(today.getDate() - diff);
+    } else if (type === 'month') {
+        start.setDate(1);
+        end = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day
+    }
+    
+    // Format YYYY-MM-DD safely
+    const yS = start.getFullYear(), mS = String(start.getMonth() + 1).padStart(2, '0'), dS = String(start.getDate()).padStart(2, '0');
+    const yE = end.getFullYear(), mE = String(end.getMonth() + 1).padStart(2, '0'), dE = String(end.getDate()).padStart(2, '0');
+    
+    startInput.value = `${yS}-${mS}-${dS}`;
+    endInput.value = `${yE}-${mE}-${dE}`;
+    
+    loadExecutiveReport();
+  }
 
   // Initialize Portal A
   function initPortalA() {
@@ -2260,16 +2599,55 @@
   function initDateFiltersC() {
     const today = new Date();
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-    document.getElementById('repStartDate').value = firstDay.toISOString().split('T')[0];
-    document.getElementById('repEndDate').value = today.toISOString().split('T')[0];
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of current month
+    
+    // Safely format dates to YYYY-MM-DD using local timezone to prevent UTC shifting
+    const formatLocal = (date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+    
+    document.getElementById('repStartDate').value = formatLocal(firstDay);
+    document.getElementById('repEndDate').value = formatLocal(lastDay);
+  }
+
+  function manualSyncPerformance() {
+    const startDate = document.getElementById('repStartDate').value;
+    if(!startDate) return alert('يرجى تحديد تاريخ البداية أولاً لتحديث الأرشفة ابتداءً منه.');
+    if(!confirm(`سيتم إعادة احتساب وحفظ بيانات التكاليف والأداء (من ${startDate} وحتى اليوم). هل تريد المتابعة؟`)) return;
+
+    showLoading();
+    google.script.run
+      .withSuccessHandler(function(res) { hideLoading(); alert(res.message); })
+      .withFailureHandler(function(e) { hideLoading(); alert("خطأ: " + e.message); })
+      .triggerRetroactiveSync(startDate, 'Manual');
+  }
+
+  function formatDurationHHMMSS(mins) {
+    if (!mins || isNaN(mins) || mins === Infinity) return '00:00:00';
+    let totalSeconds = Math.round(mins * 60);
+    let h = Math.floor(totalSeconds / 3600);
+    let m = Math.floor((totalSeconds % 3600) / 60);
+    let s = totalSeconds % 60;
+    return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function formatReportDuration(mins) {
+    if (!mins || isNaN(mins)) return '00:00:00';
+    const totalSeconds = Math.round(mins * 60);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
   }
 
   function loadExecutiveReport() {
     const filters = {
       startDate: document.getElementById('repStartDate').value,
       endDate: document.getElementById('repEndDate').value,
-      product: document.getElementById('repProduct').value || 'الكل',
-      user: document.getElementById('repUser').value || 'الكل'
+      product: document.getElementById('repProduct').value || 'الكل'
     };
 
     document.getElementById('repProductTable').innerHTML = '<tr><td colspan="4" class="px-6 py-10 text-center text-gray-400"><i class="fas fa-spinner fa-spin text-2xl mb-2"></i><br>جاري تحميل البيانات...</td></tr>';
@@ -2287,32 +2665,54 @@
     if (!filtersLoaded) {
       const pSelect = document.getElementById('repProduct');
       data.productNames.forEach(p => { pSelect.add(new Option(p, p)); });
-      const uSelect = document.getElementById('repUser');
-      data.users.forEach(u => { uSelect.add(new Option(u, u)); });
       filtersLoaded = true;
     }
 
+    // Store globally for Modal breakdown interaction
+    window.currentProductStats = data.products;
+
     // Update KPIs
-    document.getElementById('repKpiProd').textContent = formatDuration(data.kpis.prod);
-    document.getElementById('repKpiWaste').textContent = formatDuration(data.kpis.waste);
-    document.getElementById('repKpiBreak').textContent = formatDuration(data.kpis.break);
-    document.getElementById('repKpiOt').textContent = formatDuration(data.kpis.overtime);
+    document.getElementById('repKpiProd').textContent = formatReportDuration(data.kpis.prod);
+    document.getElementById('repKpiWaste').textContent = formatReportDuration(data.kpis.waste);
+    document.getElementById('repKpiBreak').textContent = formatReportDuration(data.kpis.break);
+    document.getElementById('repKpiOt').textContent = formatReportDuration(data.kpis.overtime);
     
     let effTotal = data.kpis.prod + data.kpis.waste;
     let oee = effTotal > 0 ? ((data.kpis.prod / effTotal) * 100).toFixed(1) : 0;
     document.getElementById('repKpiOee').textContent = oee + '%';
 
-    // Render Table
+    // Render Modern Interactive Table
     let tbHtml = '';
     if (data.products.length === 0) {
-       tbHtml = '<tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">لا توجد بيانات لهذه الفترة</td></tr>';
+       tbHtml = '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-400">لا توجد بيانات لهذه الفترة</td></tr>';
     } else {
-       data.products.forEach(p => {
-         tbHtml += `<tr class="hover:bg-gray-50 transition">
-            <td class="px-6 py-3 font-bold text-gray-700 border-l border-gray-100">${p.name}</td>
-            <td class="px-6 py-3 text-center border-l border-gray-100"><span class="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-bold">${p.qty}</span></td>
-            <td class="px-6 py-3 text-center border-l border-gray-100 text-green-600 font-semibold">${formatDuration(p.dur)}</td>
-            <td class="px-6 py-3 text-center bg-blue-50 text-blue-700 font-black">${p.avg}</td>
+       let totalFactoryTime = data.kpis.prod;
+
+       data.products.forEach((p, index) => {
+         let aggCostPct = totalFactoryTime > 0 ? (p.dur / totalFactoryTime) * 100 : 0;
+         let loadedTimePerUnit = p.qty > 0 ? (p.dur / p.qty) : 0;
+         let unitWeightPct = p.qty > 0 ? (aggCostPct / p.qty) : 0;
+         
+         tbHtml += `<tr class="hover:bg-slate-50 border-b border-slate-100 transition-colors cursor-pointer group" onclick="openProductDetailsModal(${index})">
+            <td class="px-4 py-3 font-bold text-slate-700 border-l border-slate-100 text-right">
+               <i class="fas fa-search-plus text-slate-300 group-hover:text-blue-500 transition-colors ml-2" style="font-size: 0.8rem;"></i>
+               ${p.name}
+            </td>
+            <td class="px-4 py-3 text-center border-l border-slate-100">
+               <span class="bg-slate-100 text-slate-800 px-3 py-1 rounded-full text-xs font-bold shadow-sm">${p.qty}</span>
+            </td>
+            <td class="px-4 py-3 text-center border-l border-slate-100 text-slate-600 font-medium tracking-wider" dir="ltr">
+               ${formatDurationHHMMSS(p.dur)}
+            </td>
+            <td class="px-4 py-3 text-center border-l border-slate-100 bg-blue-50 text-blue-700 font-bold tracking-wider">
+               <span class="bg-blue-100 px-2 py-1 rounded shadow-sm">${aggCostPct.toFixed(1)}%</span>
+            </td>
+            <td class="px-4 py-3 text-center border-l border-slate-100 bg-green-50 text-green-700 font-bold tracking-wider" dir="ltr">
+               ${formatDurationHHMMSS(loadedTimePerUnit)}
+            </td>
+            <td class="px-4 py-3 text-center bg-purple-50 text-purple-700 font-bold tracking-wider">
+               ${unitWeightPct.toFixed(3)}%
+            </td>
          </tr>`;
        });
     }
@@ -2320,7 +2720,6 @@
 
     // Destroy old charts to prevent overlapping
     if (repDoughnutInstance) repDoughnutInstance.destroy();
-    if (repTrendInstance) repTrendInstance.destroy();
 
     // Draw Doughnut Chart
     const ctxD = document.getElementById('repDoughnutChart').getContext('2d');
@@ -2341,31 +2740,104 @@
       }
     });
 
-    // Draw Trend Stacked Bar Chart
-    const trendLabels = data.trend.map(t => t.date.substring(5)); // Show MM-DD
-    const ctxT = document.getElementById('repTrendChart').getContext('2d');
-    repTrendInstance = new Chart(ctxT, {
-      type: 'bar',
-      data: {
-        labels: trendLabels,
-        datasets: [
-          { label: 'الإنتاج', data: data.trend.map(t => t.prod), backgroundColor: '#10b981' },
-          { label: 'المهدر', data: data.trend.map(t => t.waste), backgroundColor: '#ef4444' },
-          { label: 'وقت إضافي', data: data.trend.map(t => t.ot), backgroundColor: '#a855f7' }
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        scales: {
-          x: { stacked: true, grid: { display: false } },
-          y: { stacked: true, title: { display: true, text: 'الدقائق', font: {family: 'inherit'} } }
-        },
-        plugins: { legend: { position: 'top', labels: { font: { family: 'inherit', weight: 'bold' } } } }
-      }
-    });
+    // Generate Fully Absorbed Cost Allocation Grid (Replaces Trend Chart)
+    const totalPaidTime = data.kpis.prod + data.kpis.waste + data.kpis.break;
+    const totalProdTime = data.kpis.prod;
+    
+    const gridContainer = document.getElementById('costAllocationGrid');
+    gridContainer.innerHTML = '';
+    
+    if (totalProdTime === 0) {
+       gridContainer.innerHTML = '<div class="col-span-full text-center text-gray-400 py-10">لا توجد أوقات إنتاج مسجلة لتوزيع التكلفة</div>';
+    } else {
+       // Iterate strictly over actual products
+       data.products.forEach((p, index) => {
+          // The absorbed percentage is based purely on its share of the productive time
+          const pct = ((p.dur / totalProdTime) * 100).toFixed(1);
+          
+          gridContainer.innerHTML += `
+             <div onclick="openProductDetailsModal(${index})" class="bg-blue-50 border-blue-200 text-blue-900 border rounded-lg p-3 flex flex-col justify-between shadow-sm relative overflow-hidden group transition-all hover:shadow-md hover:bg-blue-100 cursor-pointer">
+                <div class="flex justify-between items-start mb-2 relative z-10 gap-2">
+                   <span class="font-bold text-xs leading-tight whitespace-normal break-words" title="${p.name}">${p.name}</span>
+                   <i class="fas fa-box text-blue-500 transition-transform group-hover:scale-110 shrink-0 mt-0.5"></i>
+                </div>
+                <div class="flex items-end justify-between relative z-10 mt-2">
+                   <span class="text-lg font-black" title="نسبة تحمل التكلفة">${pct}%</span>
+                   <span class="text-[11px] font-bold opacity-80 tracking-wider" title="وقت الإنتاج الفعلي">${formatReportDuration(p.dur)}</span>
+                </div>
+                <div class="absolute bottom-0 left-0 h-1 bg-blue-400 opacity-40 transition-all group-hover:opacity-75" style="width: ${pct}%"></div>
+             </div>
+          `;
+       });
+    }
   }
 
-  // --- TDS Portal Scripts ---
+function openProductDetailsModal(index) {
+    const stat = window.currentProductStats[index];
+    if (!stat || !stat.breakdown) return;
+    
+    document.getElementById('productDetailsTitle').innerHTML = '<i class="fas fa-box-open"></i> تفاصيل الإنتاج: ' + stat.name;
+    
+    const totalAvgDur = stat.qty > 0 ? (stat.dur / stat.qty) : 0;
+    const totalAvgFormatted = stat.qty > 0 ? formatReportDuration(totalAvgDur) : '-';
+
+    // 1. Populate Summary KPI Cards
+    const modalSummary = document.getElementById('modalSummaryCards');
+    modalSummary.innerHTML = `
+      <div style="flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+        <div style="font-size: 0.75rem; color: #64748b; font-weight: bold; margin-bottom: 4px;">إجمالي الكمية</div>
+        <div style="font-size: 1.1rem; font-weight: 900; color: #2563eb;">${stat.qty}</div>
+      </div>
+      <div style="flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+        <div style="font-size: 0.75rem; color: #64748b; font-weight: bold; margin-bottom: 4px;">وقت الإنتاج</div>
+        <div style="font-size: 1.1rem; font-weight: 900; color: #475569; letter-spacing: 0.5px;">${formatReportDuration(stat.dur)}</div>
+      </div>
+      <div style="flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+        <div style="font-size: 0.75rem; color: #64748b; font-weight: bold; margin-bottom: 4px;">متوسط الوقت للوحدة</div>
+        <div style="font-size: 1.1rem; font-weight: 900; color: #16a34a; letter-spacing: 0.5px;">${totalAvgFormatted}</div>
+      </div>
+    `;
+
+    // 2. Populate Modern Table Rows
+    const tbody = document.getElementById('productDetailsBody');
+    tbody.innerHTML = '';
+    
+    // Sort dates (Newest dates at the top)
+    const dates = Object.keys(stat.breakdown).sort((a, b) => new Date(b) - new Date(a)); 
+    
+    dates.forEach(date => {
+      const dData = stat.breakdown[date];
+      const dailyAvgDur = dData.qty > 0 ? (dData.dur / dData.qty) : 0;
+      const avgFormatted = dData.qty > 0 ? formatReportDuration(dailyAvgDur) : '-';
+      
+      // Highlight the Day vs Month/Year
+      const dateParts = date.split('-');
+      const niceDate = dateParts.length === 3 ? `<span style="color:#94a3b8; font-size:0.8rem;">${dateParts[0]}-${dateParts[1]}-</span><strong style="color:#334155;">${dateParts[2]}</strong>` : date;
+
+      const tr = document.createElement('tr');
+      tr.style.transition = 'background-color 0.2s';
+      tr.onmouseover = () => tr.style.backgroundColor = '#f8fafc';
+      tr.onmouseout = () => tr.style.backgroundColor = 'transparent';
+      
+      tr.innerHTML = `
+        <td style="padding: 12px 10px; border-bottom: 1px solid #f1f5f9;">${niceDate}</td>
+        <td style="padding: 12px 10px; text-align: center; border-bottom: 1px solid #f1f5f9;">
+          <span style="background: #eff6ff; color: #2563eb; font-weight: bold; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem;">${dData.qty}</span>
+        </td>
+        <td style="padding: 12px 10px; text-align: center; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 0.95rem; font-weight: bold; letter-spacing: 0.5px;">
+          ${formatReportDuration(dData.dur)}
+        </td>
+        <td style="padding: 12px 10px; text-align: center; border-bottom: 1px solid #f1f5f9;">
+          <span style="background: #f0fdf4; color: #16a34a; font-weight: bold; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; letter-spacing: 0.5px;">${avgFormatted}</span>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    
+    document.getElementById('productDetailsModal').style.display = 'flex';
+  }
+
+        // --- TDS Portal Scripts ---
 
 var tdsDetails = {};
 
