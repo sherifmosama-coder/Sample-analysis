@@ -50,7 +50,7 @@
 
           <!-- Main Buttons -->
           <div class="button-grid button-grid-horizontal">
-            <button class="main-btn btn-blue" onclick="promptPassword('A')">
+            <button id="btnPortalA" class="main-btn btn-blue" style="position: relative;" onclick="promptPassword('A')">
               <div class="btn-icon">
                 <i class="fas fa-cogs"></i>
               </div>
@@ -60,7 +60,7 @@
               </div>
             </button>
 
-            <button class="main-btn btn-green" onclick="promptPassword('B')">
+            <button id="btnPortalB" class="main-btn btn-green" style="position: relative;" onclick="promptPassword('B')">
               <div class="btn-icon">
                 <i class="fas fa-flask"></i>
               </div>
@@ -70,7 +70,7 @@
               </div>
             </button>
 
-            <button class="main-btn btn-blue" onclick="promptPassword('PROD')">
+            <button id="btnPortalPROD" class="main-btn btn-blue" style="position: relative;" onclick="promptPassword('PROD')">
               <div class="btn-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
                 <i class="fas fa-gears"></i>
               </div>
@@ -80,7 +80,7 @@
               </div>
             </button>
 
-            <button class="main-btn btn-blue btn-small" onclick="promptPassword('TDS')">
+            <button id="btnPortalTDS" class="main-btn btn-blue btn-small" style="position: relative;" onclick="promptPassword('TDS')">
               <div class="btn-icon" style="background: linear-gradient(135deg, #7c3aed, #5b21b6);">
                 <i class="fas fa-file-contract"></i>
               </div>
@@ -89,7 +89,7 @@
               </div>
             </button>            
 
-            <button class="main-btn btn-grey btn-small" onclick="showPortal('C')">
+            <button id="btnPortalC" class="main-btn btn-grey btn-small" style="position: relative;" onclick="showPortal('C')">
               <div class="btn-icon">
                 <i class="fas fa-chart-bar"></i>
               </div>
@@ -121,26 +121,6 @@
             </div>
           </div>
 
-          <!-- Analysis Dashboard -->
-          <div id="analysisDashboard" class="dashboard-section">
-            <div class="dashboard-header">
-              <div class="dashboard-title">
-                <i class="fas fa-microscope"></i>
-                <span>لوحة التحليلات - اليوم</span>
-              </div>
-              <button class="btn-refresh" onclick="refreshAnalysisDashboard()" title="تحديث">
-                <i class="fas fa-sync-alt"></i>
-              </button>
-            </div>
-            <div class="dashboard-cards-container">
-              <div class="dashboard-cards" id="analysisDashboardCards">
-                <div class="dashboard-loading">
-                  <i class="fas fa-spinner fa-spin"></i>
-                  <span>جاري التحميل...</span>
-                </div>
-              </div>
-            </div>
-          </div>
 
         </div>
 
@@ -194,7 +174,6 @@
     var currentPortal = '';
     var currentUser = '';
     var tanksRefreshInterval = null;
-    var analysisRefreshInterval = null;
 
     function promptPassword(portal) {
       currentPortal = portal;
@@ -229,33 +208,44 @@
       
       showLoading();
       
-      if (currentPortal === 'PROD') {
-        google.script.run
-          .withSuccessHandler(function(result) {
-            hideLoading();
-            if (result.valid) {
-              currentUser = result.userName;
-              showPortal(currentPortal);
-            } else {
-              document.getElementById('passwordError').querySelector('span').textContent = result.message || 'رمز المرور غير صحيح';
-              document.getElementById('passwordError').style.display = 'flex';
-            }
-          })
-          .withFailureHandler(function(error) { hideLoading(); alert('حدث خطأ: ' + error.message); })
-          .authenticateUser(password);
-      } else {
-        google.script.run
-          .withSuccessHandler(function(isValid) {
-            hideLoading();
-            if (isValid) {
-              showPortal(currentPortal);
-            } else {
-              document.getElementById('passwordError').querySelector('span').textContent = 'رمز المرور غير صحيح';
-              document.getElementById('passwordError').style.display = 'flex';
-            }
-          })
-          .withFailureHandler(function(error) { hideLoading(); alert('حدث خطأ: ' + error.message); })
-          .checkPassword(currentPortal, password);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.valid) {
+            currentUser = result.userName; // Set actual user name globally
+            showPortal(currentPortal);
+            startHeartbeat(currentPortal); // Start online tracking
+          } else {
+            document.getElementById('passwordError').querySelector('span').textContent = result.message || 'رمز المرور غير صحيح';
+            document.getElementById('passwordError').style.display = 'flex';
+          }
+        })
+        .withFailureHandler(function(error) { hideLoading(); alert('حدث خطأ: ' + error.message); })
+        .loginUser(password, currentPortal);
+    }
+
+    var heartbeatInterval = null;
+
+    function startHeartbeat(portal) {
+      if (!currentUser) return;
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      
+      const portalNames = { 'A': 'ارسال تانك', 'B': 'تحليل عينة', 'TDS': 'شهادات TDS', 'PROD': 'متابعة الإنتاج', 'C': 'التقارير' };
+      const locationName = portalNames[portal] || 'الرئيسية';
+      
+      google.script.run.updateHeartbeat(currentUser, locationName);
+      
+      heartbeatInterval = setInterval(function() {
+        if (currentUser) {
+          google.script.run.updateHeartbeat(currentUser, locationName);
+        }
+      }, 30000); // Ping every 30 seconds
+    }
+
+    function stopHeartbeat() {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      if (currentUser) {
+         google.script.run.updateHeartbeat(currentUser, 'الرئيسية (Idle)');
       }
     }
 
@@ -263,6 +253,11 @@
       document.getElementById('homePage').style.display = 'none';
       const portalPage = document.getElementById('portalPage');
       portalPage.style.display = 'block';
+      
+      // If user is already authenticated and navigates to a public portal, track them
+      if (currentUser && portal === 'C') {
+         startHeartbeat('C');
+      }
       
       if (portal === 'A') {
         portalPage.innerHTML = document.getElementById('portalATemplate').innerHTML;
@@ -283,6 +278,7 @@
     }
 
     function goHome() {
+      stopHeartbeat(); // Update location to Idle
       document.getElementById('portalPage').style.display = 'none';
       document.getElementById('portalPage').innerHTML = '';
       document.getElementById('passwordSection').style.display = 'none';
@@ -300,17 +296,87 @@
     }
 
     // Dashboard Functions
+    // --- ONLINE BADGES LOGIC ---
+    function getColorForName(name) {
+       let hash = 0;
+       for (let i = 0; i < name.length; i++) {
+          hash = name.charCodeAt(i) + ((hash << 5) - hash);
+       }
+       const colors = ['#ef4444', '#f97316', '#8b5cf6', '#10b981', '#3b82f6', '#ec4899', '#14b8a6'];
+       return colors[Math.abs(hash) % colors.length];
+    }
+
+    function createBadgeNode(user, index) {
+         const badge = document.createElement('div');
+         badge.style.cssText = `
+            width: 28px; height: 28px; border-radius: 50%; color: white; font-size: 11px; font-weight: 900;
+            display: flex; align-items: center; justify-content: center; border: 2px solid white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); margin-right: -10px; text-transform: uppercase;
+            background-color: ${getColorForName(user.name)}; z-index: ${100 - index};
+         `;
+         badge.title = user.name + ' (متصل الآن)';
+         badge.textContent = user.initials;
+         return badge;
+    }
+
+    function renderOnlineBadges(onlineUsers) {
+       document.querySelectorAll('.online-badges-wrapper').forEach(el => el.remove());
+
+       const locationMap = {
+          'ارسال تانك': { btn: 'btnPortalA', header: 'badgesPortalA' },
+          'تحليل عينة': { btn: 'btnPortalB', header: 'badgesPortalB' },
+          'شهادات TDS': { btn: 'btnPortalTDS', header: 'badgesPortalTDS' },
+          'متابعة الإنتاج': { btn: 'btnPortalPROD', header: 'badgesPortalPROD' },
+          'التقارير': { btn: 'btnPortalC', header: 'badgesPortalC' }
+       };
+
+       const grouped = {};
+       onlineUsers.forEach(u => {
+          if (!grouped[u.location]) grouped[u.location] = [];
+          grouped[u.location].push(u);
+       });
+
+       for (let loc in grouped) {
+          const targets = locationMap[loc];
+          if (!targets) continue;
+          
+          const badgeGroup = grouped[loc];
+
+          // 1. Draw Badges on Home Buttons
+          const btn = document.getElementById(targets.btn);
+          if (btn) {
+             const wrapper = document.createElement('div');
+             wrapper.className = 'online-badges-wrapper';
+             wrapper.style.cssText = 'position: absolute; top: -10px; right: -10px; display: flex; flex-direction: row-reverse; z-index: 20;';
+             badgeGroup.forEach((user, index) => wrapper.appendChild(createBadgeNode(user, index)));
+             btn.appendChild(wrapper);
+          }
+
+          // 2. Draw Badges inside Portal Headers
+          const headerContainer = document.getElementById(targets.header);
+          if (headerContainer) {
+             const wrapper = document.createElement('div');
+             wrapper.className = 'online-badges-wrapper';
+             wrapper.style.cssText = 'display: flex; flex-direction: row-reverse; align-items: center; margin-right: 15px;';
+             badgeGroup.forEach((user, index) => wrapper.appendChild(createBadgeNode(user, index)));
+             headerContainer.appendChild(wrapper);
+          }
+       }
+    }
+
+    function fetchOnlineUsers() {
+       google.script.run
+         .withSuccessHandler(renderOnlineBadges)
+         .getOnlineUsers();
+    }
+
+    // --- DASHBOARDS INITIALIZATION ---
     function initializeDashboards() {
       loadTanksDashboard();
-      loadAnalysisDashboard();
       
-      tanksRefreshInterval = setInterval(function() {
-        loadTanksDashboard();
-      }, 180000);
-      
-      analysisRefreshInterval = setInterval(function() {
-        loadAnalysisDashboard();
-      }, 180000);
+      // Start polling for online users every 15 seconds
+      fetchOnlineUsers();
+      setInterval(fetchOnlineUsers, 15000); 
     }
 
     function refreshTanksDashboard() {
@@ -318,15 +384,6 @@
       if (btn) btn.classList.add('rotating');
       
       loadTanksDashboard(function() {
-        if (btn) btn.classList.remove('rotating');
-      });
-    }
-
-    function refreshAnalysisDashboard() {
-      const btn = event.target.closest('.btn-refresh');
-      if (btn) btn.classList.add('rotating');
-      
-      loadAnalysisDashboard(function() {
         if (btn) btn.classList.remove('rotating');
       });
     }
@@ -346,23 +403,6 @@
           if (callback) callback();
         })
         .getTodayTanksDashboardData();
-    }
-
-    function loadAnalysisDashboard(callback) {
-      google.script.run
-        .withSuccessHandler(function(data) {
-          renderAnalysisDashboard(data);
-          if (callback) callback();
-        })
-        .withFailureHandler(function(error) {
-          console.error('Error loading analysis dashboard:', error);
-          const container = document.getElementById('analysisDashboardCards');
-          if (container) {
-            container.innerHTML = '<div class="dashboard-loading"><i class="fas fa-exclamation-circle"></i><span>خطأ في تحميل البيانات</span></div>';
-          }
-          if (callback) callback();
-        })
-        .getTodayAnalysisDashboardData();
     }
 
     function showTooltipImage(event, url) {
@@ -461,7 +501,7 @@
 
           <div style="height: 1px; background: #e2e8f0; margin: 5px 0 10px 0;"></div>
 
-          <div style="font-size: 0.75rem; color: #64748b; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;"><i class="bi bi-box-arrow-in-right text-slate-400"></i> بداية الوردية الحالية</div>
+          <div style="font-size: 0.75rem; color: #64748b; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;"><i class="bi bi-box-arrow-in-right text-slate-400"></i> بداية الوردية الجديدة</div>
           
           <div style="display: flex; justify-content: space-between; align-items: center; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #f1f5f9;">
              <div>
@@ -480,7 +520,7 @@
             <div style="grid-column: 1; grid-row: 2; font-size: 1.6rem; font-weight: 900; color: #10b981;">${data.hasConcentrationData ? data.avgConc + '%' : '-'}</div>
             <div style="grid-column: 1; grid-row: 3; font-size: 0.7rem; color: #94a3b8; font-weight: bold;">المتوسط العام</div>
 
-            <i class="fas fa-flask" style="grid-column: 2; grid-row: 1 / 4; font-size: 4rem; color: #10b981; align-self: center; justify-self: center; padding: 0 10px;"></i>
+            <i class="fas fa-flask" style="grid-column: 2; grid-row: 1 / 4; font-size: 2rem; color: #10b981; align-self: center; justify-self: center; padding: 0 10px;"></i>
           </div>
           
           <div style="margin-top: auto; padding-top: 10px; border-top: 1px solid #f1f5f9; font-size: 0.7rem; color: #64748b; font-weight: bold; display: flex; flex-direction: column; gap: 6px;">
@@ -503,50 +543,6 @@
   `;
 }
 
-    function renderAnalysisDashboard(data) {
-      const container = document.getElementById('analysisDashboardCards');
-      if (!container) return;
-      
-      var html = '';
-      
-      html += '<div class="dashboard-card clickable" onclick="navigateToAnalysisReport(\'device\')">';
-      html += '<div class="dashboard-card-icon blue"><i class="fas fa-mobile-screen-button"></i></div>';
-      html += '<div class="dashboard-card-value">' + data.deviceTotal + '</div>';
-      html += '<div class="dashboard-card-label">تحليل بالجهاز</div>';
-      html += '<div class="dashboard-card-subinfo">';
-      html += '<div class="dashboard-card-subinfo-item"><span>منتجات:</span><strong>' + data.deviceProducts + '</strong></div>';
-      html += '<div class="dashboard-card-subinfo-item"><span>تانكات:</span><strong>' + data.deviceTanks + '</strong></div>';
-      html += '</div></div>';
-      
-      html += '<div class="dashboard-card clickable" onclick="navigateToAnalysisReport(\'lab\')">';
-      html += '<div class="dashboard-card-icon green"><i class="fas fa-flask-vial"></i></div>';
-      html += '<div class="dashboard-card-value">' + data.labTotal + '</div>';
-      html += '<div class="dashboard-card-label">تحليل معملي</div>';
-      html += '<div class="dashboard-card-subinfo">';
-      html += '<div class="dashboard-card-subinfo-item"><span>منتجات:</span><strong>' + data.labProducts + '</strong></div>';
-      html += '<div class="dashboard-card-subinfo-item"><span>تانكات:</span><strong>' + data.labTanks + '</strong></div>';
-      html += '</div></div>';
-      
-      html += '<div class="dashboard-card clickable" onclick="navigateToAnalysisConcentration(\'highest\', \'' + data.highestId + '\')">';
-      html += '<div class="dashboard-card-icon purple"><i class="fas fa-arrow-up"></i></div>';
-      html += '<div class="dashboard-card-value">' + data.highest + '%</div>';
-      html += '<div class="dashboard-card-label">أعلى تركيز</div>';
-      if (data.highestLabel) {
-        html += '<div class="dashboard-card-sublabel">' + data.highestLabel + '</div>';
-      }
-      html += '</div>';
-      
-      html += '<div class="dashboard-card clickable" onclick="navigateToAnalysisConcentration(\'lowest\', \'' + data.lowestId + '\')">';
-      html += '<div class="dashboard-card-icon red"><i class="fas fa-arrow-down"></i></div>';
-      html += '<div class="dashboard-card-value">' + data.lowest + '%</div>';
-      html += '<div class="dashboard-card-label">أقل تركيز</div>';
-      if (data.lowestLabel) {
-        html += '<div class="dashboard-card-sublabel">' + data.lowestLabel + '</div>';
-      }
-      html += '</div>';
-      
-      container.innerHTML = html;
-    }
 
     function navigateToTanksReport() {
       showPortal('C');
