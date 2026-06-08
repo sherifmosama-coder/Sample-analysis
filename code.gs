@@ -8,28 +8,110 @@ function doGet() {
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
-// Check password
-function checkPassword(portal, password) {
+// --- UNIFIED RBAC AUTHENTICATION ---
+function loginUser(passcode, requestedPortal) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const systemSheet = ss.getSheetByName('System data');
-    if (!systemSheet) {
-      throw new Error('Sheet "System data" not found');
+    const usersSheet = ss.getSheetByName('App_Users');
+    
+    if (!usersSheet) {
+      throw new Error('Sheet "App_Users" not found. Please create it with the specified columns.');
     }
 
-    let correctPassword = '';
+    const lastRow = usersSheet.getLastRow();
+    if (lastRow < 2) return { valid: false, message: 'No users configured in the system.' };
 
-    if (portal === 'A') {
-      correctPassword = systemSheet.getRange('A2').getValue().toString();
-    } else if (portal === 'B') {
-      correctPassword = systemSheet.getRange('B2').getValue().toString();
-    } else if (portal === 'TDS') {
-      correctPassword = systemSheet.getRange('C2').getValue().toString();
+    // Fetch Columns A through F
+    const data = usersSheet.getRange(2, 1, lastRow - 1, 6).getValues(); 
+    
+    // Map portal ID to the respective Checkbox Column Index (0-based array)
+    // Col C (Index 2) = Portal A
+    // Col D (Index 3) = Portal B
+    // Col E (Index 4) = PROD
+    // Col F (Index 5) = TDS
+    const portalColMap = {
+      'A': 2,
+      'B': 3,
+      'PROD': 4,
+      'TDS': 5
+    };
+    const targetColIndex = portalColMap[requestedPortal];
+
+    for (let i = 0; i < data.length; i++) {
+      if (String(data[i][1]) === String(passcode)) { // Found the PIN in Col B
+        const userName = data[i][0]; // Name in Col A
+        const hasAccess = data[i][targetColIndex] === true; // Checkbox value
+        
+        if (hasAccess) {
+          return { valid: true, userName: userName };
+        } else {
+          return { valid: false, message: 'ليس لديك صلاحية للدخول إلى هذه البوابة.' };
+        }
+      }
     }
-
-    return password === correctPassword;
+    return { valid: false, message: 'الرمز السري غير صحيح.' };
   } catch (error) {
-    throw new Error('Error checking password: ' + error.message);
+    return { valid: false, message: 'System Error: ' + error.message };
+  }
+}
+
+// --- HEARTBEAT & ONLINE TRACKING ---
+function updateHeartbeat(userName, portalName) {
+  if (!userName) return;
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const usersSheet = ss.getSheetByName('App_Users');
+    if (!usersSheet || usersSheet.getLastRow() < 2) return;
+    
+    const data = usersSheet.getRange(2, 1, usersSheet.getLastRow() - 1, 1).getValues();
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === userName) {
+        const rowIndex = i + 2;
+        const timestamp = new Date();
+        // Col G = Last Ping, Col H = Location
+        usersSheet.getRange(rowIndex, 7).setValue(timestamp);
+        usersSheet.getRange(rowIndex, 8).setValue(portalName);
+        break;
+      }
+    }
+  } catch (e) {
+    // Silent fail to avoid disrupting user experience
+  }
+}
+
+function getOnlineUsers() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const usersSheet = ss.getSheetByName('App_Users');
+    if (!usersSheet || usersSheet.getLastRow() < 2) return [];
+
+    // Fetch Name (A) to Location (H)
+    const data = usersSheet.getRange(2, 1, usersSheet.getLastRow() - 1, 8).getValues();
+    const now = new Date().getTime();
+    const onlineUsers = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const userName = String(data[i][0] || '').trim();
+      const lastPingDate = data[i][6]; // Col G
+      const location = String(data[i][7] || '').trim(); // Col H
+
+      if (userName && lastPingDate instanceof Date) {
+        const diffMs = now - lastPingDate.getTime();
+        // Consider "Online" if pinged within the last 2 minutes (120,000 ms)
+        if (diffMs <= 120000 && location && !location.includes('Idle')) {
+           // Get first 2 characters for initials
+           const initials = userName.substring(0, 2).toUpperCase();
+           onlineUsers.push({
+             name: userName,
+             initials: initials,
+             location: location
+           });
+        }
+      }
+    }
+    return onlineUsers;
+  } catch (e) {
+    return [];
   }
 }
 // Get material options from index sheet
@@ -1071,23 +1153,7 @@ function generateAndLogGenericTDS(productName) {
     throw new Error('Error generating Generic Spec: ' + error.message);
   }
 }
-// --- PRODUCTION PORTAL FUNCTIONS ---
-function authenticateUser(passcode) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName('Users');
-    if (!sheet) return { valid: false, message: 'لم يتم العثور على شيت Users. الرجاء إنشائه.' };
-    const lastRow = sheet.getLastRow();
-    if (lastRow < 2) return { valid: false, message: 'قائمة المستخدمين فارغة' };
-    const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
-    for (let i = 0; i < data.length; i++) {
-      if (data[i][1].toString() === passcode.toString()) {
-        return { valid: true, userName: data[i][0] };
-      }
-    }
-    return { valid: false, message: 'رمز المرور غير صحيح' };
-  } catch (e) { return { valid: false, message: e.message }; }
-}
+
 function getProdSetup() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1268,7 +1334,7 @@ function getTodayProdSessions(targetDateStr) {
         }
       }
 
-      if (rowDateStr === todayStr) {
+      if (rowDateStr === todayStr || data[i][12] === 'Paused') {
         let sTime = data[i][5] instanceof Date ? Utilities.formatDate(data[i][5], Session.getScriptTimeZone(), 'HH:mm') : String(data[i][5] || '');
         let eTime = data[i][6] instanceof Date ? Utilities.formatDate(data[i][6], Session.getScriptTimeZone(), 'HH:mm') : String(data[i][6] || '');
 
