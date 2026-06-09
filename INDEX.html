@@ -105,11 +105,17 @@
             <div class="dashboard-header">
               <div class="dashboard-title">
                 <i class="fas fa-fill-drip"></i>
-                <span>لوحة التانكات - اليوم</span>
+                <span id="tanksDashboardTitle">لوحة التانكات - اليوم</span>
               </div>
-              <button class="btn-refresh" onclick="refreshTanksDashboard()" title="تحديث">
-                <i class="fas fa-sync-alt"></i>
-              </button>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="date" id="tanksDatePicker" class="form-control" style="padding: 4px 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none; color: #475569; background: #f8fafc;" onchange="refreshTanksDashboard()">
+                <button id="tanksClearDateBtn" class="btn-refresh" style="display: none; color: #ef4444; background: #fee2e2; border-color: #fca5a5;" onclick="resetTanksDate()" title="إلغاء التحديد (العودة لليوم)">
+                  <i class="fas fa-times"></i>
+                </button>
+                <button class="btn-refresh" onclick="refreshTanksDashboard()" title="تحديث">
+                  <i class="fas fa-sync-alt"></i>
+                </button>
+              </div>
             </div>
             <div class="dashboard-cards-container">
               <div class="dashboard-cards" id="tanksDashboardCards">
@@ -379,8 +385,14 @@
       setInterval(fetchOnlineUsers, 15000); 
     }
 
+    function resetTanksDate() {
+      const datePicker = document.getElementById('tanksDatePicker');
+      if (datePicker) datePicker.value = '';
+      refreshTanksDashboard();
+    }
+
     function refreshTanksDashboard() {
-      const btn = event.target.closest('.btn-refresh');
+      const btn = event ? (event.target.closest ? event.target.closest('.btn-refresh') : null) : null;
       if (btn) btn.classList.add('rotating');
       
       loadTanksDashboard(function() {
@@ -389,6 +401,32 @@
     }
 
     function loadTanksDashboard(callback) {
+      const datePicker = document.getElementById('tanksDatePicker');
+      const selectedDate = datePicker ? datePicker.value : '';
+      
+      // Toggle Clear Button Visibility dynamically
+      const clearBtn = document.getElementById('tanksClearDateBtn');
+      if (clearBtn) {
+         clearBtn.style.display = selectedDate ? 'flex' : 'none';
+      }
+      
+      // Update the Dashboard Title Dynamically
+      const titleEl = document.getElementById('tanksDashboardTitle');
+      if (titleEl) {
+         if (selectedDate) {
+             const d = new Date(selectedDate);
+             titleEl.textContent = 'لوحة التانكات - ' + d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' });
+         } else {
+             titleEl.textContent = 'لوحة التانكات - اليوم';
+         }
+      }
+
+      const container = document.getElementById('tanksDashboardCards');
+      if (container) {
+         // Show loading state while fetching the new date
+         container.innerHTML = '<div class="dashboard-loading"><i class="fas fa-spinner fa-spin"></i><span>جاري التحميل...</span></div>';
+      }
+
       google.script.run
         .withSuccessHandler(function(data) {
           renderTanksDashboard(data);
@@ -396,13 +434,12 @@
         })
         .withFailureHandler(function(error) {
           console.error('Error loading tanks dashboard:', error);
-          const container = document.getElementById('tanksDashboardCards');
           if (container) {
             container.innerHTML = '<div class="dashboard-loading"><i class="fas fa-exclamation-circle"></i><span>خطأ في تحميل البيانات</span></div>';
           }
           if (callback) callback();
         })
-        .getTodayTanksDashboardData();
+        .getTodayTanksDashboardData(selectedDate);
     }
 
     function showTooltipImage(event, url) {
@@ -464,12 +501,119 @@
       setTimeout(() => document.addEventListener('click', closeTooltip), 50);
     }
 
+    function showTankTooltip(event, isMissing) {
+      event.stopPropagation();
+      const existing = document.getElementById('tankDataTooltip');
+      if(existing) existing.remove();
+      
+      const targetEl = event.currentTarget;
+      const btnRect = targetEl.getBoundingClientRect();
+      const time = targetEl.getAttribute('data-time') || '';
+      const labResult = targetEl.getAttribute('data-result') || '';
+      const productType = targetEl.getAttribute('data-product') || '';
+      
+      const tooltip = document.createElement('div');
+      tooltip.id = 'tankDataTooltip';
+      tooltip.style.position = 'fixed';
+      tooltip.style.zIndex = '100000';
+      tooltip.style.backgroundColor = '#1e293b';
+      tooltip.style.color = 'white';
+      tooltip.style.padding = '10px 15px';
+      tooltip.style.borderRadius = '8px';
+      tooltip.style.boxShadow = '0 10px 25px rgba(0,0,0,0.3)';
+      tooltip.style.border = '1px solid #475569';
+      tooltip.style.fontSize = '0.85rem';
+      tooltip.style.fontWeight = 'bold';
+      tooltip.style.minWidth = '120px';
+      tooltip.style.pointerEvents = 'none';
+
+      if (isMissing) {
+        tooltip.innerHTML = '<div style="display:flex; align-items:center; gap:8px; margin-bottom:5px; color:#fca5a5;"><i class="fas fa-exclamation-triangle"></i><span>مفقود</span></div>' +
+                            '<div style="display:flex; align-items:center; gap:8px; color:#34d399;"><i class="fas fa-flask"></i><span style="direction:ltr;">-</span></div>';
+      } else {
+        tooltip.innerHTML = '<div style="display:flex; align-items:center; gap:8px; margin-bottom:5px; color:#cbd5e1;"><i class="far fa-clock"></i><span style="direction:ltr;">' + time + '</span></div>' +
+                            '<div style="display:flex; align-items:center; gap:8px; margin-bottom:5px; color:#fbbf24;"><i class="fas fa-box"></i><span>' + productType + '</span></div>' +
+                            '<div style="display:flex; align-items:center; gap:8px; color:#34d399;"><i class="fas fa-flask"></i><span style="direction:ltr;">' + labResult + '</span></div>';
+      }
+
+      document.body.appendChild(tooltip);
+
+      let topPos = btnRect.top - tooltip.offsetHeight - 10;
+      if (topPos < 10) topPos = btnRect.bottom + 10;
+      
+      let leftPos = btnRect.left + (btnRect.width / 2) - (tooltip.offsetWidth / 2);
+      if (leftPos < 10) leftPos = 10;
+      if (leftPos + tooltip.offsetWidth > window.innerWidth - 10) leftPos = window.innerWidth - tooltip.offsetWidth - 10;
+
+      tooltip.style.top = topPos + 'px';
+      tooltip.style.left = leftPos + 'px';
+      tooltip.style.transform = 'scale(0.9)';
+      tooltip.style.opacity = '0';
+      tooltip.style.transition = 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+      
+      requestAnimationFrame(() => {
+        tooltip.style.transform = 'scale(1)';
+        tooltip.style.opacity = '1';
+      });
+
+      const closeTooltip = function() {
+        if (tooltip && tooltip.parentNode) {
+            tooltip.style.transform = 'scale(0.9)';
+            tooltip.style.opacity = '0';
+            setTimeout(() => tooltip.remove(), 200);
+        }
+        document.removeEventListener('click', closeTooltip);
+      };
+      setTimeout(() => document.addEventListener('click', closeTooltip), 50);
+    }
+
     function renderTanksDashboard(data) {
   const container = document.getElementById('tanksDashboardCards');
   if (!container) return;
 
   const ho = data.handover || {};
   const prevTank = data.prevShiftLastTank || {};
+
+  // Build the chips HTML using standard data attributes to bypass Maestro HTML parser errors
+  let chipsHTML = '';
+  let maxReg = data.maxRegisteredSerial || 0;
+  
+  if (data.startSerial > 0 && data.endSerial >= data.startSerial) {
+    for (let i = data.startSerial; i <= data.endSerial; i++) {
+      let tankData = data.tanksMap ? data.tanksMap[i] : null;
+      
+      if (tankData) {
+        let specialClass = '';
+        let isMissing = false;
+        
+        if (!tankData.isRegistered) {
+            if (i < maxReg) {
+                // Rule 1: Not registered AND smaller than the highest registered tank -> Missing
+                isMissing = true;
+                specialClass += ' missing';
+            } else {
+                // Rule 4: Not registered BUT is the latest active tank -> Early Lab / In-Progress
+                specialClass += ' chip-early-lab';
+            }
+        } else {
+            if (tankData.productType && tankData.productType !== 'خل') {
+                // Rule 2: Registered AND Not "خل" -> Yellow Border
+                specialClass += ' chip-special';
+            }
+            
+            if (tankData.labResult === '-') {
+               // Rule 3: Recorded but NOT analyzed (no lab result) -> Glowing red border
+               specialClass += ' chip-untested';
+            }
+        }
+        
+        chipsHTML += '<div class="chip-tank' + specialClass + '" data-time="' + tankData.time + '" data-result="' + tankData.labResult + '" data-product="' + tankData.productType + '" onclick="showTankTooltip(event, ' + isMissing + ')">' + i + '</div>';
+      } else {
+        // Rule 5: Completely absent from sheet -> Missing
+        chipsHTML += '<div class="chip-tank missing" onclick="showTankTooltip(event, true)">' + i + '</div>';
+      }
+    }
+  }
 
   container.innerHTML = `
     <style>
@@ -479,12 +623,15 @@
        
        <div style="grid-column: span 2; background: linear-gradient(135deg, #2563eb, #1e3a8a); border-radius: 16px; padding: 25px 20px; color: white; display: flex; flex-direction: column; box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25); border: 1px solid #3b82f6; position: relative; overflow: hidden;">
           <i class="bi bi-droplet-half" style="position: absolute; left: -10px; top: -10px; font-size: 8rem; opacity: 0.1;"></i>
-          <div style="font-size: 0.95rem; color: #bfdbfe; font-weight: bold; margin-bottom: 8px; z-index: 10;"><i class="bi bi-bar-chart-fill text-blue-300"></i> إجمالي تانكات اليوم</div>
-          <div style="font-size: 3.8rem; font-weight: 900; line-height: 1; color: #ffffff; text-shadow: 0px 2px 4px rgba(0,0,0,0.2); z-index: 10;">${data.totalCount || 0}</div>
-          <div style="margin-top: 15px; font-size: 0.85rem; color: #dbeafe; font-weight: bold; display: flex; align-items: center; gap: 8px; z-index: 10;">
-             <span style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 6px;">${data.startSerial || 0}</span>
-             <i class="bi bi-arrow-left-short text-xl"></i>
-             <span style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 6px;">${data.endSerial || 0}</span>
+          
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; z-index: 10;">
+             <div style="font-size: 3.8rem; font-weight: 900; line-height: 1; color: #ffffff; text-shadow: 0px 2px 4px rgba(0,0,0,0.2);">
+                <span style="font-size: 2.5rem; opacity: 0.8; margin-left: 5px;">#</span>${data.totalCount || 0}
+             </div>
+          </div>
+          
+          <div class="tank-chips-container">
+             ${chipsHTML}
           </div>
        </div>
 
