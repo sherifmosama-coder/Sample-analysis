@@ -967,7 +967,7 @@
         hideLoading();
         alert('خطأ في التحقق من الرمز: ' + error.message);
       })
-      .authenticateUser(pin);
+      .loginUser(pin, 'PROD');
   }
 
   function applyOverrideDate(selectedDate) {
@@ -1057,6 +1057,10 @@
         prodDataList = prodDataList.filter(s => s.status !== 'Cancelled' && s.status !== 'ملغي');
     }
 
+    // ISOLATE TIMELINE: Filter strictly for today's physical time segments
+    let targetDate = getActiveDateStr();
+    let timelineDataList = prodDataList.filter(s => s.date === targetDate);
+
     let hasActive = false; let hasHistory = false; let hasPaused = false;
     let nowMins = getMins(new Date().toTimeString().substring(0,5));
     
@@ -1067,7 +1071,7 @@
 
     // 1. Collect Break Intervals to subtract from Production Sessions
     let breakIntervals = [];
-    prodDataList.forEach(function(s) {
+    timelineDataList.forEach(function(s) {
       if (s.product === 'وقت الراحة') {
         let sM = getMins(s.startTime);
         let eM = s.status === 'Active' ? nowMins : getMins(s.endTime);
@@ -1076,7 +1080,7 @@
       }
     });
 
-    prodDataList.forEach(function(s) {
+    timelineDataList.forEach(function(s) {
       let sM = getMins(s.startTime);
       let eM = s.status === 'Active' ? nowMins : getMins(s.endTime);
       let dur = eM - sM; if(dur < 0) dur += 1440;
@@ -1104,9 +1108,9 @@
     });
 
     // Make-Up & Overtime Logic
-    let shiftStart = (prodDataList.length > 0 && actualStart < 480) ? actualStart : 480;
+    let shiftStart = (timelineDataList.length > 0 && actualStart < 480) ? actualStart : 480;
     let shiftEnd = shiftStart + 510; // +8.5 hours
-    let deficit = (prodDataList.length > 0 && actualStart > 480) ? actualStart - 480 : 0;
+    let deficit = (timelineDataList.length > 0 && actualStart > 480) ? actualStart - 480 : 0;
     
     let extraMins = actualEnd > shiftEnd ? actualEnd - shiftEnd : 0;
     let compMins = Math.min(deficit, extraMins); // Flex-Time logic
@@ -1171,7 +1175,7 @@
       return lane;
     }
 
-    prodDataList.forEach(function(s) {
+    timelineDataList.forEach(function(s) {
       let sM = getMins(s.startTime);
       let eM = s.status === 'Active' ? nowMins : getMins(s.endTime);
       let dur = eM - sM; if(dur < 0) dur += 1440;
