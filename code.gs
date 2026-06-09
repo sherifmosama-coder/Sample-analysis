@@ -721,30 +721,44 @@ function exportReportToExcel(reportType, reportData) {
   }
 }
 // Dashboard Functions
-function getTodayTanksDashboardData() {
+function getTodayTanksDashboardData(targetDateStr) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tankSheet = ss.getSheetByName('Tank');
     if (!tankSheet || tankSheet.getLastRow() < 2) return getEmptyTanksDashboard();
 
     const tz = Session.getScriptTimeZone();
-    const today = new Date();
+    let today;
+    if (targetDateStr) {
+      today = new Date(targetDateStr);
+    } else {
+      today = new Date();
+    }
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-
     const data = tankSheet.getRange(2, 1, tankSheet.getLastRow() - 1, 18).getValues();
 
     let todayData = [];
     data.forEach(function (row) {
-      const timestamp = new Date(row[0]);
-      if (timestamp >= today && timestamp < tomorrow) {
+      // A tank can be initiated by Production (Col A/0) OR by the Lab (Col Q/16)
+      let regTime = row[0] ? new Date(row[0]) : null;
+      let labTime = row[16] ? new Date(row[16]) : null;
+      
+      let isValidDay = false;
+      if (regTime && regTime >= today && regTime < tomorrow) isValidDay = true;
+      if (labTime && labTime >= today && labTime < tomorrow) isValidDay = true;
+
+      if (isValidDay) {
         let serial = parseInt(row[12]);
         if (!isNaN(serial)) {
           todayData.push({
-            timestamp: timestamp,
+            // Show registration time if it exists, otherwise fallback to lab analysis time
+            timestamp: regTime ? regTime : labTime, 
             serial: serial,
-            labResult: row[15] !== '' ? parseFloat(row[15]) * 100 : null
+            labResult: row[15] !== '' ? parseFloat(row[15]) * 100 : null,
+            productType: row[4] || 'غير مسجل', // Provide a fallback label if Col E is empty
+            isRegistered: regTime !== null
           });
         }
       }
@@ -753,6 +767,10 @@ function getTodayTanksDashboardData() {
     const serials = todayData.map(function(i) { return i.serial; });
     const startSerial = serials.length > 0 ? Math.min.apply(null, serials) : 0;
     const endSerial = serials.length > 0 ? Math.max.apply(null, serials) : 0;
+    
+    // Find the highest serial number actually registered by production
+    const registeredSerials = todayData.filter(function(i) { return i.isRegistered; }).map(function(i) { return i.serial; });
+    const maxRegisteredSerial = registeredSerials.length > 0 ? Math.max.apply(null, registeredSerials) : 0;
 
     const concData = todayData.filter(function(i) { return i.labResult !== null; });
     let avg = 0, highest = 0, lowest = 0;
@@ -771,37 +789,78 @@ function getTodayTanksDashboardData() {
       lowestSerials = concData.filter(function(i) { return i.labResult === lowest; }).map(function(i) { return i.serial; });
     }
 
-    // Fetch Handover Data safely
+    // Fetch Handover Data safely (Foolproof ISO String Matching)
     let handover = {};
     let prevShiftLastTank = {};
     try {
       const hoSheet = ss.getSheetByName("Shift_Handovers");
       if (hoSheet && hoSheet.getLastRow() >= 2) {
-         const hoRow = hoSheet.getRange(hoSheet.getLastRow(), 1, 1, 4).getValues()[0];
-         handover = {
-            time: String(hoRow[0]),
-            lastTankNum: parseInt(hoRow[1]),
-            expectedNext: parseInt(hoRow[2]),
-            image: String(hoRow[3])
-         };
-         
-         // Scan historical data for the actual last tank to get its real timestamp and image
-         for(let i = data.length - 1; i >= 0; i--) {
-            if(parseInt(data[i][12]) === handover.lastTankNum) {
-               prevShiftLastTank = {
-                  time: data[i][0] ? Utilities.formatDate(new Date(data[i][0]), tz, 'yyyy-MM-dd HH:mm') : '',
-                  image: String(data[i][17] || '')
-               };
-               break;
-            }
+         const hoData = hoSheet.getRange(2, 1, hoSheet.getLastRow() - 1, 4).getValues();
+         let hoRow = null;
+
+         // Establish target date string (always yyyy-MM-dd format)
+         const targetDate = targetDateStr || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+
+         // Look backwards for the first handover timestamp that is strictly BEFORE the target date
+         for (let i = hoData.length - 1; i >= 0; i--) {
+           let hoDateStr = '';
+           if (hoData[i][0]) {
+             try {
+               hoDateStr = Utilities.formatDate(new Date(hoData[i][0]), tz, 'yyyy-MM-dd');
+             } catch (e) {
+               // Safe fallback if row is read as a raw string format 'YYYY-MM-DD HH:mm:ss'
+               hoDateStr = String(hoData[i][0]).substring(0, 10);
+             }
+           }
+
+           if (hoDateStr && hoDateStr < targetDate) {
+             hoRow = hoData[i];
+             break;
+           }
+         }
+
+         // Global Fallback: If no previous row satisfies the condition, load the absolute last available entry
+         if (!hoRow && hoData.length > 0) {
+            hoRow = hoData[hoData.length - 1];
+         }
+
+         if (hoRow) {
+           handover = {
+              time: String(hoRow[0]),
+              lastTankNum: parseInt(hoRow[1]),
+              expectedNext: parseInt(hoRow[2]),
+              image: String(hoRow[3])
+           };
+           // Scan historical data for the actual last tank to get its real timestamp and image
+           for(let i = data.length - 1; i >= 0; i--) {
+              if(parseInt(data[i][12]) === handover.lastTankNum) {
+                 prevShiftLastTank = {
+                    time: data[i][0] ? Utilities.formatDate(new Date(data[i][0]), tz, 'yyyy-MM-dd HH:mm') : '',
+                    image: String(data[i][17] || '')
+                 };
+                 break;
+              }
+           }
          }
       }
     } catch(e) {}
+
+    // Format timestamps and lab results for the frontend chip popovers
+    const formattedTanks = {};
+    todayData.forEach(function(t) {
+      formattedTanks[t.serial] = {
+        time: Utilities.formatDate(t.timestamp, Session.getScriptTimeZone(), 'hh:mm a'),
+        labResult: t.labResult !== null ? t.labResult.toFixed(2) + '%' : '-',
+        productType: t.productType,
+        isRegistered: t.isRegistered
+      };
+    });
 
     return {
       totalCount: todayData.length,
       startSerial: startSerial,
       endSerial: endSerial,
+      maxRegisteredSerial: maxRegisteredSerial,
       avgConc: avg.toFixed(2),
       highestConc: highest.toFixed(2),
       lowestConc: lowest.toFixed(2),
@@ -809,7 +868,8 @@ function getTodayTanksDashboardData() {
       lowestSerialUnique: lowestSerials.length === 1 ? lowestSerials[0] : null,
       hasConcentrationData: concData.length > 0,
       handover: handover,
-      prevShiftLastTank: prevShiftLastTank
+      prevShiftLastTank: prevShiftLastTank,
+      tanksMap: formattedTanks
     };
   } catch (error) {
     return getEmptyTanksDashboard();
@@ -818,11 +878,12 @@ function getTodayTanksDashboardData() {
 
 function getEmptyTanksDashboard() {
   return {
-    totalCount: 0, startSerial: 0, endSerial: 0,
+    totalCount: 0, startSerial: 0, endSerial: 0, maxRegisteredSerial: 0,
     avgConc: '0.00', highestConc: '0.00', lowestConc: '0.00',
     highestSerialUnique: null, lowestSerialUnique: null,
     hasConcentrationData: false,
-    handover: {}, prevShiftLastTank: {}
+    handover: {}, prevShiftLastTank: {},
+    tanksMap: {}
   };
 }
 function getTodayAnalysisDashboardData() {
