@@ -114,6 +114,15 @@
       </div>
     </div>
 
+    <div id="smartAlertModal" class="smart-alert-overlay">
+      <div class="smart-alert-box">
+        <div class="smart-alert-icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <div id="smartAlertTitle" class="smart-alert-title">تنبيه</div>
+        <div id="smartAlertMessage" class="smart-alert-message">الرسالة هنا</div>
+        <button class="smart-alert-btn" onclick="closeSmartAlert()">حسناً، فهمت</button>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -502,8 +511,9 @@
             <tr>
               <th style="padding: 15px 10px; color: #64748b; font-size: 0.85rem; border-bottom: 2px solid #e2e8f0;">التاريخ</th>
               <th style="padding: 15px 10px; color: #64748b; font-size: 0.85rem; border-bottom: 2px solid #e2e8f0; text-align: center;">الكمية</th>
-              <th style="padding: 15px 10px; color: #64748b; font-size: 0.85rem; border-bottom: 2px solid #e2e8f0; text-align: center;">الوقت</th>
-              <th style="padding: 15px 10px; color: #64748b; font-size: 0.85rem; border-bottom: 2px solid #e2e8f0; text-align: center;">المتوسط</th>
+              <th style="padding: 15px 10px; color: #64748b; font-size: 0.85rem; border-bottom: 2px solid #e2e8f0; text-align: center;" title="وقت الماكينة الفعلي">التشغيل</th>
+              <th style="padding: 15px 10px; color: #64748b; font-size: 0.85rem; border-bottom: 2px solid #e2e8f0; text-align: center;" title="الوقت المالي المحمل للتكلفة">المالي</th>
+              <th style="padding: 15px 10px; color: #64748b; font-size: 0.85rem; border-bottom: 2px solid #e2e8f0; text-align: center;" title="متوسط التشغيل الفعلي للوحدة">السرعة</th>
             </tr>
           </thead>
           <tbody id="productDetailsBody">
@@ -1013,15 +1023,123 @@
       .getProdSetup();
   }
 
+  let globalUnifiedData = { timeline: [], masterCards: [] };
+
+  // Lightweight Click-Triggered Tooltip
+  window.showClickTooltip = function(event, text) {
+    event.stopPropagation();
+    const old = document.getElementById('click-tooltip');
+    if(old) old.remove();
+    
+    const tt = document.createElement('div');
+    tt.id = 'click-tooltip';
+    tt.style.position = 'fixed';
+    tt.style.left = event.clientX + 'px';
+    tt.style.top = (event.clientY - 35) + 'px';
+    tt.style.background = '#1e293b';
+    tt.style.color = '#ffffff';
+    tt.style.padding = '6px 12px';
+    tt.style.borderRadius = '6px';
+    tt.style.fontSize = '0.75rem';
+    tt.style.fontWeight = 'bold';
+    tt.style.zIndex = '999999';
+    tt.style.pointerEvents = 'none';
+    tt.style.transform = 'translateX(-50%)';
+    tt.style.boxShadow = '0 4px 10px rgba(0,0,0,0.2)';
+    tt.innerText = text;
+    
+    document.body.appendChild(tt);
+    setTimeout(() => { if (tt.parentNode) tt.remove(); }, 2500); // Auto-hide after 2.5s
+  };
+
+  // --- SMART ALERT & TIME VALIDATOR ENGINE ---
+  function showSmartAlert(title, message) {
+    let modal = document.getElementById('smartAlertModal');
+    
+    // Auto-inject the HTML if it doesn't exist in the DOM
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'smartAlertModal';
+      modal.className = 'smart-alert-overlay';
+      modal.innerHTML = `
+        <div class="smart-alert-box">
+          <div class="smart-alert-icon"><i class="fas fa-exclamation-triangle"></i></div>
+          <div id="smartAlertTitle" class="smart-alert-title"></div>
+          <div id="smartAlertMessage" class="smart-alert-message" style="white-space: pre-wrap;"></div>
+          <button class="smart-alert-btn" onclick="closeSmartAlert()">حسناً، فهمت</button>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    // Set the dynamic text
+    document.getElementById('smartAlertTitle').textContent = title;
+    document.getElementById('smartAlertMessage').textContent = message;
+    
+    // Use a tiny timeout to ensure the CSS transition triggers smoothly after creation
+    setTimeout(() => {
+      modal.classList.add('show');
+    }, 10);
+  }
+
+  function closeSmartAlert() {
+    document.getElementById('smartAlertModal').classList.remove('show');
+  }
+
+  function smartValidateTime(masterId, actionType, inputTime) {
+    if (!inputTime) return true; // Let standard empty-field validations handle this
+    
+    // 1. Admin/Back-door Bypass: If overriding the date, allow free time travel
+    if (typeof overrideSystemDate !== 'undefined' && overrideSystemDate) return true; 
+
+    // 2. Locate the specific Master Batch and its latest segment
+    let master = globalUnifiedData.masterCards.find(m => m.masterId === masterId);
+    if (!master || !master.history || master.history.length === 0) return true;
+
+    let lastSeg = master.history[master.history.length - 1];
+    let todayStr = getActiveDateStr(); 
+    let inputMins = getMins(inputTime);
+
+    // 3. Chronological Logic Verification
+    if (actionType === 'pause' || actionType === 'end') {
+        // Only restrict if the session STARTED today
+        if (lastSeg.status === 'Active' && lastSeg.date === todayStr) {
+            let startMins = getMins(lastSeg.startTime);
+            if (inputMins < startMins) {
+                showSmartAlert(
+                  "تنبيه: تسلسل زمني غير منطقي", 
+                  `لا يمكن إنهاء التشغيلة في الساعة ${inputTime} لأنها بدأت في الساعة ${lastSeg.startTime} من نفس اليوم.\n\nهل قمت بإدخال (ص/م) بشكل خاطئ؟`
+                );
+                return false;
+            }
+        }
+    } else if (actionType === 'resume') {
+        // Only restrict if the session was PAUSED today
+        if (lastSeg.status === 'Paused' && lastSeg.date === todayStr) {
+            let pausedMins = getMins(lastSeg.endTime);
+            if (inputMins < pausedMins) {
+                showSmartAlert(
+                  "تنبيه: تسلسل زمني غير منطقي", 
+                  `لا يمكن استئناف العمل في الساعة ${inputTime} لأن التشغيلة أُوقفت في الساعة ${lastSeg.endTime} من نفس اليوم.\n\nهل قمت بإدخال (ص/م) بشكل خاطئ؟`
+                );
+                return false;
+            }
+        }
+    }
+    
+    // If it spans across midnight (different days), or passes the math above, it is Valid.
+    return true;
+  }
+
   function loadProdSessions() {
     document.getElementById('activeSessionsList').innerHTML = '<div class="dashboard-loading"><i class="fas fa-spinner fa-spin"></i><span>جاري التحميل...</span></div>';
     google.script.run
       .withSuccessHandler(function(data) {
-        prodDataList = data || [];
+        globalUnifiedData = data || { timeline: [], masterCards: [] };
         renderProdSessions();
       })
       .withFailureHandler(function(e) { alert(e.message); })
-      .getTodayProdSessions(overrideSystemDate);
+      .getUnifiedProdData(overrideSystemDate);
   }
 
   function formatDuration(mins) {
@@ -1058,8 +1176,8 @@
     }
 
     // ISOLATE TIMELINE: Filter strictly for today's physical time segments
-    let targetDate = getActiveDateStr();
-    let timelineDataList = prodDataList.filter(s => s.date === targetDate);
+    let timelineDataList = globalUnifiedData.timeline || [];
+    let masterCardsData = globalUnifiedData.masterCards || [];
 
     let hasActive = false; let hasHistory = false; let hasPaused = false;
     let nowMins = getMins(new Date().toTimeString().substring(0,5));
@@ -1294,90 +1412,157 @@
     chipsContainer.style.display = 'block';
     chipsContainer.style.height = '45px';
 
-    // Render Cards
-    prodDataList.forEach(function(session) {
-      const card = document.createElement('div');
-      let iconHTML = '<i class="fas fa-box"></i>';
-      let cardClass = 'prod-card';
-      let statusHTML = session.status === 'Active' ? '<span class="prod-status status-active">نشط</span>' : '<span class="prod-status status-completed">مكتمل</span>';
+    // Render Master Cards
+    masterCardsData.forEach(function(master) {
+      if (master.finalStatus === 'Active') hasActive = true;
+      if (master.finalStatus === 'Paused') hasPaused = true;
+      if (master.finalStatus === 'Completed') hasHistory = true;
+
+      // Calculate Concurrency Percentages
+      let m = master.metrics;
+      let totalMins = m.concurrencyCounts["1"] + m.concurrencyCounts["2"] + m.concurrencyCounts["3"] + m.concurrencyCounts["4+"];
+      let p1 = totalMins > 0 ? (m.concurrencyCounts["1"] / totalMins) * 100 : 0;
+      let p2 = totalMins > 0 ? (m.concurrencyCounts["2"] / totalMins) * 100 : 0;
+      let p3 = totalMins > 0 ? (m.concurrencyCounts["3"] / totalMins) * 100 : 0;
+      let p4 = totalMins > 0 ? (m.concurrencyCounts["4+"] / totalMins) * 100 : 0;
       
-      if (session.product === 'وقت مهدر') {
-        iconHTML = '<i class="fas fa-exclamation-triangle" style="color:#ef4444; margin-left:8px;"></i>';
-        cardClass = 'prod-card card-waste';
-        statusHTML = '';
-      } else if (session.product === 'وقت الراحة') {
-        iconHTML = '<i class="fas fa-mug-hot" style="color:#d97706; margin-left:8px;"></i>';
-        cardClass = 'prod-card card-break';
-        statusHTML = '';
+      let avgSpeed = master.totalQuantity > 0 ? (m.operationalDur / master.totalQuantity).toFixed(2) : '0.00';
+
+      // Calculate Pauses and create a distinctive chip
+      let segmentCount = master.history.length;
+      let pauseCount = segmentCount - 1;
+      let pausesChip = pauseCount > 0 
+          ? `<div class="clean-chip" style="background: #fef2f2; color: #ef4444; border-color: #fee2e2;" onclick="showClickTooltip(event, 'تم إيقافها ${pauseCount} مرات (مقسمة إلى ${segmentCount} أجزاء)')"><i class="fas fa-pause-circle" style="color: #ef4444;"></i> ${pauseCount} توقف</div>`
+          : `<div class="clean-chip" onclick="showClickTooltip(event, 'تشغيلة مستمرة بدون توقف')"><i class="fas fa-link"></i> مستمرة</div>`;
+
+      // Build Segment History HTML
+      let segmentsHTML = '';
+      const monthsAr = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+      
+      master.history.forEach(seg => {
+         let segClass = seg.status === 'Active' ? 'active-seg' : (seg.status === 'Paused' ? 'paused-seg' : '');
+         
+         // 1. Determine Status Icon & Color
+         let statusIcon = '';
+         if (seg.status === 'Active') {
+            statusIcon = '<i class="fas fa-cogs" style="color: #3b82f6; font-size: 0.8rem;" title="نشط"></i>';
+         } else if (seg.status === 'Paused') {
+            statusIcon = '<i class="fas fa-pause-circle" style="color: #f59e0b; font-size: 0.85rem;" title="معلق"></i>';
+         } else {
+            statusIcon = '<i class="fas fa-check-circle" style="color: #10b981; font-size: 0.85rem;" title="مكتمل"></i>';
+         }
+
+         // 2. Format Short Date (e.g., "10 يونيو")
+         let shortDate = seg.date;
+         if (seg.date && seg.date.includes('-')) {
+            let parts = seg.date.split('-');
+            if (parts.length === 3) {
+               shortDate = parseInt(parts[2], 10) + ' ' + monthsAr[parseInt(parts[1], 10) - 1];
+            }
+         }
+
+         segmentsHTML += `
+            <div class="segment-row ${segClass}" style="position: relative; padding-left: 16px; padding-right: 8px;">
+               <div style="position: absolute; left: -11px; top: 50%; transform: translateY(-50%); background: #ffffff; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.15); z-index: 10;">
+                  ${statusIcon}
+               </div>
+
+               <div style="display:flex; flex-direction:column; gap:4px;">
+                 <div>
+                   <strong style="font-size:0.95rem; color:#334155;">${shortDate}</strong>
+                 </div>
+                 <div style="display:inline-flex; align-items:center; background:#f1f5f9; padding:2px 8px; border-radius:12px; border:1px solid #e2e8f0; font-size:0.75rem; color:#475569; font-weight:700; white-space: nowrap;">
+                   <i class="far fa-clock" style="margin-left:5px; color:#94a3b8;"></i> ${seg.startTime} - ${seg.endTime || 'الآن'}
+                 </div>
+               </div>
+               
+               <div style="display:flex; align-items:center; gap:10px;">
+                 <div style="display:flex; flex-direction:column; gap:4px; align-items: flex-end; min-width: 85px;">
+                   <span class="clean-chip" style="padding: 2px 6px; font-size: 0.75rem; width: 100%; justify-content: flex-start; gap: 4px;" onclick="showClickTooltip(event, 'الكمية المسجلة لهذا الجزء: ${seg.quantityAllocated || 0}')">
+                     <i class="fas fa-cubes" style="font-size: 0.7rem; color:#64748b;"></i> ${seg.quantityAllocated || 0}
+                   </span>
+                   <span class="clean-chip" style="padding: 2px 6px; font-size: 0.75rem; width: 100%; justify-content: flex-start; gap: 4px;" onclick="showClickTooltip(event, 'مدة التشغيل: ${formatDuration(seg.duration || 0)}')">
+                     <i class="far fa-hourglass" style="font-size: 0.7rem; color:#64748b;"></i> ${seg.duration} د
+                   </span>
+                 </div>
+                 <button class="btn btn-primary btn-sm" style="padding: 5px 8px; font-size: 0.75rem; height: fit-content; align-self: center;" onclick="openEditModal('${seg.segmentId}')" title="تعديل هذا الجزء">
+                   <i class="fas fa-edit"></i>
+                 </button>
+               </div>
+            </div>`;
+      });
+
+      let stateClass = '';
+      let watermarkIcon = '';
+      let actionButtons = '';
+
+      // Determine State Class, Watermark, and Action Buttons
+      if (master.finalStatus === 'Active') {
+          stateClass = 'active';
+          watermarkIcon = '<i class="fas fa-cogs"></i>'; // Blue Gears
+          actionButtons = `<button class="btn btn-primary btn-sm" style="flex:2;" onclick="openEndModal('${master.masterId}')"><i class="fas fa-flag-checkered"></i> إجراءات التشغيلة</button>
+                           <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="openEditModal('${master.masterId}')"><i class="fas fa-edit"></i> تعديل الدفعة</button>`;
+      } else if (master.finalStatus === 'Paused') {
+          stateClass = 'paused';
+          watermarkIcon = '<i class="fas fa-pause-circle"></i>'; // Orange Pause
+          actionButtons = `<button class="btn btn-sm" style="flex:2; background:#10b981; color:white; border:none;" onclick="openResumeModal('${master.masterId}')"><i class="fas fa-play"></i> استئناف العمل</button>
+                           <button class="btn btn-sm" style="flex:1; background:#ef4444; color:white; border:none;" onclick="openEndModal('${master.masterId}')"><i class="fas fa-stop"></i> خيارات أخرى</button>`;
+      } else if (master.finalStatus === 'Completed') {
+          stateClass = 'completed';
+          watermarkIcon = '<i class="fas fa-check-circle"></i>'; // Green Check
+          actionButtons = `<button class="btn btn-secondary btn-sm" style="width: 100%; border: 1px solid #cbd5e1; background: #f8fafc;" onclick="openEditModal('${master.masterId}')"><i class="fas fa-edit"></i> تعديل الدفعة بأكملها (الكمية والصور)</button>`;
       }
 
-      // Display netDuration if available, otherwise fallback to raw duration string
-      let displayDurText = (session.netDuration !== undefined) ? formatDuration(session.netDuration) : (session.duration ? formatDuration(session.duration) : '');
+      const card = document.createElement('div');
+      card.className = `master-batch-card ${stateClass}`;
 
-      let timeChips = '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">' +
-        '<span class="time-chip chip-start"><i class="fas fa-play"></i> ' + session.startTime + '</span>' +
-        (session.endTime ? '<span class="time-chip chip-end"><i class="fas fa-stop"></i> ' + session.endTime + '</span>' : '') +
-        (displayDurText ? '<span class="time-chip chip-dur"><i class="fas fa-clock"></i> ' + displayDurText + '</span>' : '') +
-        '</div>';
+      let imageBtn = master.finalImage ? `<div style="margin-top:10px;"><button class="btn btn-secondary btn-sm" style="background:#f0f9ff; color:#0369a1; border-color:#bae6fd; width:100%;" onclick="openImagePreview('${master.finalImage}')"><i class="fas fa-image"></i> عرض الصورة المرفقة</button></div>` : '';
 
-      let historyBtnHTML = session.editHistory ? 
-        '<button class="btn btn-secondary btn-sm" style="width:100%; margin-top:8px; background: #f1f5f9; border:none;" onclick="toggleHistory(this)"><i class="fas fa-history"></i> سجل التعديلات <i class="fas fa-chevron-down"></i></button>' +
-        '<div class="edit-history-box">' + session.editHistory + '</div>' : '';
+      card.innerHTML = `
+          <div class="master-batch-header" style="align-items: flex-start; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 12px;">
+             <div class="master-batch-title" style="width: 80%; padding-top: 4px;">
+                <i class="fas fa-box" style="color:#2563eb;"></i> ${master.product}
+             </div>
+             <div class="status-watermark">${watermarkIcon}</div>
+          </div>
+          
+          <div style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
+             <div class="clean-chip" onclick="showClickTooltip(event, 'الكمية الإجمالية المنتجة: ${master.totalQuantity}')"><i class="fas fa-cubes"></i> ${master.totalQuantity}</div>
+             <div class="clean-chip" onclick="showClickTooltip(event, 'متوسط وقت الإنتاج لكل وحدة: ${avgSpeed} دقيقة')"><i class="fas fa-tachometer-alt"></i> ${avgSpeed}</div>
+             <div class="clean-chip" onclick="showClickTooltip(event, 'وقت التشغيل العملي: ${formatDuration(m.operationalDur)}')"><i class="fas fa-hourglass-half"></i> ${formatDuration(m.operationalDur)}</div>
+             ${pausesChip}
+          </div>
 
-      if (session.status === 'Active') {
-        if (session.product === 'وقت الراحة') return;
-        hasActive = true;
-        card.className = cardClass;
-        card.innerHTML = 
-          '<div class="prod-card-header" style="margin-bottom:10px; padding-bottom:5px;">' +
-            '<span class="prod-title">' + iconHTML + session.product + '</span>' + statusHTML +
-          '</div>' +
-          '<div class="prod-card-body">' + timeChips +
-            '<div class="prod-detail"><span>المستخدم:</span><span>' + session.user + '</span></div>' +
-            '<hr style="border:0; border-top:1px solid #e5e7eb; margin:10px 0;">' +
-            '<div style="display:flex; gap:10px; margin-top:auto;">' +
-              '<button class="btn btn-primary btn-sm" style="flex:2;" onclick="openEndModal(\'' + session.id + '\')"><i class="fas fa-flag-checkered"></i> إجراءات التشغيلة</button>' +
-              '<button class="btn btn-secondary btn-sm" style="flex:1;" onclick="openEditModal(\'' + session.id + '\')"><i class="fas fa-edit"></i> تعديل</button>' +
-            '</div>' + historyBtnHTML +
-          '</div>';
-        activeList.appendChild(card);
-      } else if (session.status === 'Paused') {
-        if (session.product === 'وقت الراحة') return;
-        hasPaused = true;
-        card.className = cardClass;
-        card.style.border = '2px dashed #f97316';
-        card.innerHTML = 
-          '<div class="prod-card-header" style="margin-bottom:10px; padding-bottom:5px;">' +
-            '<span class="prod-title">' + iconHTML + session.product + '</span><span class="prod-status bg-orange-100 text-orange-800 border border-orange-200">معلق مؤقتاً</span>' +
-          '</div>' +
-          '<div class="prod-card-body">' + timeChips +
-            '<div class="prod-detail"><span>المستخدم:</span><span>' + session.user + '</span></div>' +
-            (session.notes ? '<div class="prod-detail" style="margin-top:8px; flex-direction:column; background:#fff7ed; padding:5px; border-radius:4px;"><span style="color:#ea580c; font-size:10px; font-weight:bold;">آخر ملاحظة:</span><span style="font-weight:normal; font-size:11px;">' + session.notes + '</span></div>' : '') +
-            '<hr style="border:0; border-top:1px dashed #fdba74; margin:10px 0;">' +
-            '<div style="display:flex; gap:10px; margin-top:auto;">' +
-              '<button class="btn btn-sm" style="flex:2; background:#10b981; color:white; border:none;" onclick="openResumeModal(\'' + session.id + '\')"><i class="fas fa-play"></i> استئناف العمل</button>' +
-              '<button class="btn btn-sm" style="flex:1; background:#ef4444; color:white; border:none;" onclick="openEndModal(\'' + session.id + '\')"><i class="fas fa-stop"></i> خيارات أخرى</button>' +
-            '</div>' + historyBtnHTML +
-          '</div>';
-        if(pausedList) pausedList.appendChild(card);
-      } else if (session.status === 'Completed') {
-        if (session.product === 'وقت مهدر' || session.product === 'وقت الراحة') return;
-        hasHistory = true;
-        card.className = cardClass;
-        card.innerHTML = 
-          '<div class="prod-card-header" style="margin-bottom:0; padding-bottom:10px; border-bottom:none;">' +
-            '<span class="prod-title">' + iconHTML + session.product + '</span>' + statusHTML +
-          '</div>' +
-          '<div class="prod-card-body collapsed">' + timeChips +
-            '<div class="prod-detail"><span>الكمية:</span><span>' + session.quantity + '</span></div><div class="prod-detail"><span>المتوسط:</span><span>' + session.avg + ' د/وحدة</span></div>' +
-            '<div class="prod-detail"><span>بواسطة:</span><span>' + session.user + '</span></div>' +
-            (session.image ? '<div class="prod-detail" style="margin-top:5px;"><button class="btn btn-secondary btn-sm" style="background:#f0f9ff; color:#0369a1; border-color:#bae6fd; width:100%;" onclick="openImagePreview(\'' + session.image + '\')"><i class="fas fa-image"></i> عرض الصورة المرفقة</button></div>' : '') +
-            (session.notes ? '<div class="prod-detail" style="margin-top:5px; flex-direction:column;"><span>ملاحظات:</span><span style="font-weight:normal;">' + session.notes + '</span></div>' : '') +
-            '<hr style="border:0; border-top:1px solid #e5e7eb; margin:10px 0;">' +
-            '<button class="btn btn-primary btn-sm" style="width:100%;" onclick="openEditModal(\'' + session.id + '\')"><i class="fas fa-edit"></i> تعديل البيانات</button>' + historyBtnHTML +
-          '</div>' +
-          '<button class="card-toggle-btn" onclick="toggleCardDetails(this)"><i class="fas fa-chevron-down"></i> عرض التفاصيل</button>';
-        historyList.appendChild(card);
+          <div class="concurrency-wrapper">
+             <div style="font-size: 0.75rem; color: #64748b; display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <span>معدل التزامن التشغيلي</span>
+                <span class="clean-chip" style="padding: 2px 6px; font-size: 0.7rem;" onclick="showClickTooltip(event, 'الوقت المالي المخفف: ${formatDuration(m.financialDur)}')"><i class="fas fa-wallet"></i> ${m.financialDur.toFixed(1)} د</span>
+             </div>
+             <div class="concurrency-bar">
+                <div class="conc-segment conc-solo" style="width: ${p1}%" onclick="showClickTooltip(event, 'تشغيل مفرد: ${p1.toFixed(0)}%')"></div>
+                <div class="conc-segment conc-two" style="width: ${p2}%" onclick="showClickTooltip(event, 'تشغيل مزدوج: ${p2.toFixed(0)}%')"></div>
+                <div class="conc-segment conc-three" style="width: ${p3}%" onclick="showClickTooltip(event, 'تشغيل ثلاثي: ${p3.toFixed(0)}%')"></div>
+                <div class="conc-segment conc-heavy" style="width: ${p4}%" onclick="showClickTooltip(event, 'تشغيل كثيف: ${p4.toFixed(0)}%')"></div>
+             </div>
+          </div>
+
+          <div class="segment-history-container">
+             ${segmentsHTML}
+          </div>
+          
+          ${imageBtn}
+
+          <div style="margin-top: 15px; display: flex; gap: 8px;">
+             ${actionButtons}
+          </div>
+      `;
+
+      if (master.finalStatus === 'Active') {
+         activeList.appendChild(card);
+      } else if (master.finalStatus === 'Paused') {
+         if (pausedList) pausedList.appendChild(card);
+      } else if (master.finalStatus === 'Completed') {
+         historyList.appendChild(card);
       }
     });
     
@@ -1516,10 +1701,15 @@ function submitProdAction(action) {
     const eTime = document.getElementById('prodEndTime').value;
     const qty = document.getElementById('prodEndQty').value;
     const notes = document.getElementById('prodEndNotes').value;
+    const masterSessionId = document.getElementById('endSessionId').value;
 
     if (!eTime) return alert("يرجى إدخال الوقت المحدد");
     if (action === 'complete' && !qty) return alert("يرجى إدخال الكمية المنتجة قبل الإنهاء");
     if ((action === 'pause' || action === 'cancel') && !notes) return alert("يرجى ذكر السبب في حقل الملاحظات");
+    
+    // --- SMART TIME VALIDATOR HOOK ---
+    if (!smartValidateTime(masterSessionId, action, eTime)) return;
+    // ---------------------------------
     
     document.getElementById('endModal').style.display = 'none';
     showLoading();
@@ -1545,13 +1735,19 @@ function submitProdAction(action) {
 
   function submitResumeProd() {
     const rTime = document.getElementById('prodResumeTime').value;
+    const masterSessionId = document.getElementById('resumeSessionId').value;
+
     if(!rTime) return alert("يرجى تحديد وقت الاستئناف");
+
+    // --- SMART TIME VALIDATOR HOOK ---
+    if (!smartValidateTime(masterSessionId, 'resume', rTime)) return;
+    // ---------------------------------
 
     document.getElementById('resumeModal').style.display = 'none';
     showLoading();
 
     const data = {
-        sessionId: document.getElementById('resumeSessionId').value,
+        sessionId: masterSessionId,
         user: currentUser,
         resumeTime: rTime
     };
@@ -1648,44 +1844,60 @@ function submitProdAction(action) {
   }
 
   function openEditModal(id) {
-    const session = prodDataList.find(function(s) { return s.id === id; });
-    if(!session) return;
+    document.getElementById('editSessionId').value = id; // Saves the clicked ID
     
-    document.getElementById('editSessionId').value = id;
-    document.getElementById('editStartTime').value = session.startTime;
-    document.getElementById('editNotes').value = session.notes || '';
+    let isMaster = false; let isSegment = false; let isTimelineOnly = false;
+    let masterObj = globalUnifiedData.masterCards.find(m => m.masterId === id);
+    let segmentObj = null;
     
-    // Auto-adjust modal layout based on record type and status
-    if (session.product === 'وقت الراحة') {
-      document.getElementById('editCompletedFields').style.display = 'none'; // Hide Qty/Image
-      document.getElementById('editTimeFields').style.display = 'block';
-      document.getElementById('editEndTimeGroup').style.display = (session.status === 'Active') ? 'none' : 'block';
-      document.getElementById('editEndTime').value = session.endTime;
-    } else if (session.status === 'Active') {
-      document.getElementById('editCompletedFields').style.display = 'none';
-      document.getElementById('editTimeFields').style.display = 'block';
-      document.getElementById('editEndTimeGroup').style.display = 'none';
-    } else if (session.product === 'وقت مهدر') {
-      document.getElementById('editCompletedFields').style.display = 'block';
-      document.getElementById('editTimeFields').style.display = 'none'; 
-      document.getElementById('editQtyGroup').style.display = 'none';
+    // Determine the Data Type
+    if (masterObj) {
+       isMaster = true;
     } else {
-      document.getElementById('editCompletedFields').style.display = 'block';
-      document.getElementById('editTimeFields').style.display = 'block';
-      document.getElementById('editEndTimeGroup').style.display = 'block';
-      document.getElementById('editEndTime').value = session.endTime;
-      
-      // Calculate Total Batch Quantity by summing all segments of this session
-      let batchTotalQty = 0;
-      prodDataList.forEach(function(s) {
-         if (s.id === id && s.quantity) batchTotalQty += parseFloat(s.quantity);
-      });
-      
-      document.getElementById('editTotalQty').value = parseFloat(batchTotalQty.toFixed(1));
-      document.getElementById('editSegmentQty').textContent = parseFloat(session.quantity || 0).toFixed(1);
-      document.getElementById('editQtyGroup').style.display = 'block';
+       for (let m of globalUnifiedData.masterCards) {
+          let foundSeg = m.history.find(s => s.segmentId === id);
+          if (foundSeg) { segmentObj = foundSeg; masterObj = m; isSegment = true; break; }
+       }
     }
     
+    let timelineObj = globalUnifiedData.timeline.find(t => t.segmentId === id || t.masterId === id);
+    if (!isMaster && !isSegment && timelineObj) isTimelineOnly = true;
+
+    if (!isMaster && !isSegment && !isTimelineOnly) return showSmartAlert("تنبيه", "عذراً، لم يتم العثور على البيانات في الذاكرة.");
+
+    // Configure Modal UI Based on Type
+    if (isTimelineOnly) {
+       if (timelineObj.product === 'وقت الراحة') {
+          document.getElementById('editCompletedFields').style.display = 'none';
+          document.getElementById('editTimeFields').style.display = 'block';
+          document.getElementById('editStartTime').value = timelineObj.startTime;
+          document.getElementById('editEndTimeGroup').style.display = (timelineObj.status === 'Active') ? 'none' : 'block';
+          document.getElementById('editEndTime').value = timelineObj.endTime || '';
+       } else if (timelineObj.product === 'وقت مهدر') {
+          document.getElementById('editTimeFields').style.display = 'none';
+          document.getElementById('editCompletedFields').style.display = 'block';
+          document.getElementById('editQtyGroup').style.display = 'none';
+       }
+    } 
+    else if (isSegment) {
+       document.getElementById('editTimeFields').style.display = 'block';
+       document.getElementById('editCompletedFields').style.display = 'block'; // Unlock Image/Notes for Segments
+       if (document.getElementById('editQtyGroup')) document.getElementById('editQtyGroup').style.display = 'none'; // Hide Qty for Segments
+       document.getElementById('editStartTime').value = segmentObj.startTime;
+       document.getElementById('editEndTimeGroup').style.display = (segmentObj.status === 'Active') ? 'none' : 'block';
+       document.getElementById('editEndTime').value = segmentObj.endTime || '';
+       document.getElementById('editNotes').value = segmentObj.notes || '';
+    } 
+    else if (isMaster) {
+       document.getElementById('editTimeFields').style.display = 'none'; // Master edits don't touch specific time
+       document.getElementById('editCompletedFields').style.display = 'block';
+       if (document.getElementById('editQtyGroup')) document.getElementById('editQtyGroup').style.display = 'block';
+       document.getElementById('editTotalQty').value = parseFloat(masterObj.totalQuantity.toFixed(1)) || 0;
+       if (document.getElementById('editSegmentQty')) document.getElementById('editSegmentQty').textContent = masterObj.totalQuantity || 0;
+       let lastSeg = masterObj.history[masterObj.history.length - 1];
+       document.getElementById('editNotes').value = lastSeg.notes || '';
+    }
+
     uploadedEditImage = null;
     document.getElementById('editPreviewImg').style.display = 'none';
     document.getElementById('editImageInput').value = '';
@@ -1705,49 +1917,48 @@ function submitProdAction(action) {
   }
 
   function submitEditProd() {
-    const sessionId = document.getElementById('editSessionId').value;
-    const session = prodDataList.find(function(s) { return s.id === sessionId; });
+    const editId = document.getElementById('editSessionId').value;
     const sTime = document.getElementById('editStartTime').value;
+    const eTime = document.getElementById('editEndTime').value;
+    const nQty = document.getElementById('editTotalQty').value;
+    const notes = document.getElementById('editNotes').value;
     
-    if (!sTime) return alert("يرجى إدخال وقت البدء");
+    const isTimeVisible = document.getElementById('editTimeFields').style.display !== 'none';
+    const isQtyVisible = document.getElementById('editCompletedFields').style.display !== 'none';
     
+    if (isTimeVisible && !sTime) return showSmartAlert("تنبيه", "يرجى إدخال وقت البدء");
+    if (isTimeVisible && document.getElementById('editEndTimeGroup').style.display !== 'none' && !eTime) {
+        return showSmartAlert("تنبيه", "يرجى إدخال وقت الإنهاء");
+    }
+
     document.getElementById('editModal').style.display = 'none';
     showLoading();
     
-    if (session.status === 'Active') {
-      finalizeEditProd({
-        sessionId: sessionId,
-        user: currentUser,
-        isActiveEdit: true,
-        newStartTime: sTime
-      });
-    } else {
-      const eTime = document.getElementById('editEndTime').value;
-      const nQty = document.getElementById('editTotalQty').value; // Grab the global total
-      
-      if(!eTime || !nQty) return alert("يرجى ملء الحقول الإجبارية (الأوقات والكمية)");
-      
-      const data = {
-        sessionId: sessionId,
-        user: currentUser,
-        isActiveEdit: false,
-        newStartTime: sTime,
-        newEndTime: eTime,
-        newTotalQuantity: parseFloat(nQty), // Send as newTotalQuantity
-        newNotes: document.getElementById('editNotes').value
-      };
+    // isQtyActuallyVisible is strictly for triggering the Quantity Ripple Math
+    const isQtyActuallyVisible = document.getElementById('editQtyGroup') && document.getElementById('editQtyGroup').style.display !== 'none';
 
-      if (uploadedEditImage) {
-        google.script.run
-          .withSuccessHandler(function(res) {
-            data.newImageUrl = res.url;
-            finalizeEditProd(data);
-          })
-          .withFailureHandler(function(e) { hideLoading(); alert("خطأ في رفع الصورة: " + e.message); finalizeEditProd(data); })
-          .uploadImageToDrive(uploadedEditImage, 'Edit_Prod_' + data.sessionId + '.jpg');
-      } else {
-        finalizeEditProd(data);
-      }
+    const data = {
+      targetId: editId,
+      user: currentUser,
+      editTime: isTimeVisible,
+      newStartTime: sTime,
+      newEndTime: eTime,
+      editQuantity: isQtyActuallyVisible,
+      newTotalQuantity: parseFloat(nQty) || 0,
+      newNotes: notes
+    };
+
+    // Always allow Image Uploads, whether it's a Segment or Master
+    if (uploadedEditImage) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          data.newImageUrl = res.url;
+          finalizeEditProd(data);
+        })
+        .withFailureHandler(function(e) { hideLoading(); showSmartAlert("خطأ", "فشل رفع الصورة: " + e.message); finalizeEditProd(data); })
+        .uploadImageToDrive(uploadedEditImage, 'Edit_Prod_' + editId + '.jpg');
+    } else {
+      finalizeEditProd(data);
     }
   }
 
@@ -2918,10 +3129,10 @@ function openProductDetailsModal(index) {
     
     document.getElementById('productDetailsTitle').innerHTML = '<i class="fas fa-box-open"></i> تفاصيل الإنتاج: ' + stat.name;
     
-    const totalAvgDur = stat.qty > 0 ? (stat.dur / stat.qty) : 0;
-    const totalAvgFormatted = stat.qty > 0 ? formatReportDuration(totalAvgDur) : '-';
+    // Operational Speed strictly uses Raw Duration
+    const opAvgFormatted = stat.qty > 0 ? formatReportDuration(stat.rawDur / stat.qty) : '-';
 
-    // 1. Populate Summary KPI Cards
+    // 1. Populate Summary KPI Cards (Upgraded for Dual-Math)
     const modalSummary = document.getElementById('modalSummaryCards');
     modalSummary.innerHTML = `
       <div style="flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
@@ -2929,12 +3140,16 @@ function openProductDetailsModal(index) {
         <div style="font-size: 1.1rem; font-weight: 900; color: #2563eb;">${stat.qty}</div>
       </div>
       <div style="flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-        <div style="font-size: 0.75rem; color: #64748b; font-weight: bold; margin-bottom: 4px;">وقت الإنتاج</div>
-        <div style="font-size: 1.1rem; font-weight: 900; color: #475569; letter-spacing: 0.5px;">${formatReportDuration(stat.dur)}</div>
+        <div style="font-size: 0.75rem; color: #64748b; font-weight: bold; margin-bottom: 4px;">التشغيل الصافي</div>
+        <div style="font-size: 1.1rem; font-weight: 900; color: #475569; letter-spacing: 0.5px;">${formatReportDuration(stat.rawDur || 0)}</div>
       </div>
       <div style="flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-        <div style="font-size: 0.75rem; color: #64748b; font-weight: bold; margin-bottom: 4px;">متوسط الوقت للوحدة</div>
-        <div style="font-size: 1.1rem; font-weight: 900; color: #16a34a; letter-spacing: 0.5px;">${totalAvgFormatted}</div>
+        <div style="font-size: 0.75rem; color: #64748b; font-weight: bold; margin-bottom: 4px;">المالي المخفف</div>
+        <div style="font-size: 1.1rem; font-weight: 900; color: #8b5cf6; letter-spacing: 0.5px;">${formatReportDuration(stat.dilutedDur || 0)}</div>
+      </div>
+      <div style="flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+        <div style="font-size: 0.75rem; color: #64748b; font-weight: bold; margin-bottom: 4px;">متوسط السرعة</div>
+        <div style="font-size: 1.1rem; font-weight: 900; color: #16a34a; letter-spacing: 0.5px;">${opAvgFormatted}</div>
       </div>
     `;
 
@@ -2947,8 +3162,8 @@ function openProductDetailsModal(index) {
     
     dates.forEach(date => {
       const dData = stat.breakdown[date];
-      const dailyAvgDur = dData.qty > 0 ? (dData.dur / dData.qty) : 0;
-      const avgFormatted = dData.qty > 0 ? formatReportDuration(dailyAvgDur) : '-';
+      const dailyOpAvg = dData.qty > 0 ? (dData.rawDur / dData.qty) : 0;
+      const avgFormatted = dData.qty > 0 ? formatReportDuration(dailyOpAvg) : '-';
       
       // Highlight the Day vs Month/Year
       const dateParts = date.split('-');
@@ -2964,8 +3179,11 @@ function openProductDetailsModal(index) {
         <td style="padding: 12px 10px; text-align: center; border-bottom: 1px solid #f1f5f9;">
           <span style="background: #eff6ff; color: #2563eb; font-weight: bold; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem;">${dData.qty}</span>
         </td>
-        <td style="padding: 12px 10px; text-align: center; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 0.95rem; font-weight: bold; letter-spacing: 0.5px;">
-          ${formatReportDuration(dData.dur)}
+        <td style="padding: 12px 10px; text-align: center; border-bottom: 1px solid #f1f5f9; color: #475569; font-size: 0.85rem; font-weight: bold;">
+          ${formatReportDuration(dData.rawDur || 0)}
+        </td>
+        <td style="padding: 12px 10px; text-align: center; border-bottom: 1px solid #f1f5f9; color: #8b5cf6; font-size: 0.85rem; font-weight: bold;">
+          ${formatReportDuration(dData.dilutedDur || 0)}
         </td>
         <td style="padding: 12px 10px; text-align: center; border-bottom: 1px solid #f1f5f9;">
           <span style="background: #f0fdf4; color: #16a34a; font-weight: bold; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; letter-spacing: 0.5px;">${avgFormatted}</span>
@@ -2975,7 +3193,7 @@ function openProductDetailsModal(index) {
     });
     
     document.getElementById('productDetailsModal').style.display = 'flex';
-  }
+}
 
         // --- TDS Portal Scripts ---
 
