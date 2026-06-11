@@ -1991,4 +1991,172 @@ body {
   .chip-tank.chip-early-lab {
     opacity: 0.5;
   }
+
+  /* --- PHASE 3: MASTER BATCH CARDS --- */
+  .master-batch-card {
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+    transition: all 0.3s ease;
+    position: relative; /* Required for watermark positioning */
+    overflow: hidden; /* Keeps the watermark strictly inside the card */
+  }
+  
+  /* State-Based Background Gradients (Sharp corner transition to white) */
+  .master-batch-card.active { background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.85) 0%, rgba(59, 130, 246, 0.1) 15%, #ffffff 30%); border-color: #bfdbfe; }
+  .master-batch-card.paused { background: radial-gradient(circle at top left, rgba(249, 115, 22, 0.85) 0%, rgba(249, 115, 22, 0.1) 15%, #ffffff 30%); border-color: #fed7aa; }
+  .master-batch-card.completed { background: radial-gradient(circle at top left, rgba(16, 185, 129, 0.85) 0%, rgba(16, 185, 129, 0.1) 15%, #ffffff 30%); border-color: #bbf7d0; }
+
+  /* Watermark Icon (20% width, same row, white, smaller) */
+  .status-watermark {
+    width: 20%;
+    display: flex;
+    justify-content: flex-end; /* RTL: pushes to the far physical left */
+    align-items: flex-start;
+    font-size: 2.2rem;
+    color: #ffffff;
+    pointer-events: none;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+  }
+
+  /* Ensure content stays above the watermark */
+  .master-batch-card > * { position: relative; z-index: 1; }
+
+  .master-batch-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+  }
+  .master-batch-title {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .master-batch-id {
+    font-size: 0.75rem;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 12px;
+  }
+  .concurrency-wrapper {
+    margin-top: 12px;
+    background: #f8fafc;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+  .concurrency-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 5px;
+    background: #e2e8f0;
+  }
+  .conc-segment { height: 100%; transition: width 0.5s ease; }
+  .conc-solo { background: #10b981; } /* Green: 1 Batch */
+  .conc-two { background: #f59e0b; }  /* Yellow: 2 Batches */
+  .conc-three { background: #f97316; } /* Orange: 3 Batches */
+  .conc-heavy { background: #ef4444; } /* Red: 4+ Batches */
+  
+  .segment-history-container {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px dashed #cbd5e1;
+  }
+  .segment-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+    border-left: 3px solid #cbd5e1;
+  }
+  .segment-row.active-seg { border-left-color: #3b82f6; }
+  .segment-row.paused-seg { border-left-color: #f59e0b; }
+
+  /* --- MINIMALIST CHIPS --- */
+  .clean-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f8fafc;
+    color: #475569;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .clean-chip:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+  }
+  .clean-chip i {
+    color: #64748b;
+  }
+
+  /* --- SMART TIME ALERT MODAL --- */
+  .smart-alert-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 1000000;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+  }
+  .smart-alert-overlay.show {
+    opacity: 1; pointer-events: auto;
+  }
+  .smart-alert-box {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 16px;
+    padding: 24px;
+    width: 90%; max-width: 380px;
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    transform: translateY(20px) scale(0.95);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .smart-alert-overlay.show .smart-alert-box {
+    transform: translateY(0) scale(1);
+  }
+  .smart-alert-icon {
+    font-size: 3.5rem; color: #ef4444; margin-bottom: 15px;
+    filter: drop-shadow(0 4px 8px rgba(239, 68, 68, 0.3));
+  }
+  .smart-alert-title {
+    font-size: 1.3rem; font-weight: bold; color: #1e293b; margin-bottom: 10px;
+  }
+  .smart-alert-message {
+    font-size: 0.95rem; color: #475569; margin-bottom: 24px; line-height: 1.6; font-weight: 500;
+  }
+  .smart-alert-btn {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white; border: none;
+    padding: 12px 24px; border-radius: 10px; font-weight: bold; font-size: 1rem;
+    cursor: pointer; transition: all 0.2s; width: 100%;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  }
+  .smart-alert-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+  }
 </style>
