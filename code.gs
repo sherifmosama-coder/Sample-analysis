@@ -1221,8 +1221,8 @@ function getProdSetup() {
     let sheet = ss.getSheetByName('Production_Logs');
     if (!sheet) {
       sheet = ss.insertSheet('Production_Logs');
-      sheet.appendRow(['Session ID', 'Timestamp', 'User Name', 'Date', 'Product Name', 'Start Time', 'End Time', 'Duration (Mins)', 'Quantity', 'Avg Time/Unit (Mins)', 'Notes', 'Image URL', 'Status']);
-      sheet.getRange(1, 1, 1, 13).setFontWeight('bold');
+      sheet.appendRow(['Session ID (Master)', 'Timestamp', 'User Name', 'Date', 'Product Name', 'Start Time', 'End Time', 'Duration (Mins)', 'Quantity', 'Avg Time/Unit (Mins)', 'Notes', 'Image URL', 'Status', 'Segment ID']);
+      sheet.getRange(1, 1, 1, 14).setFontWeight('bold');
     }
     const idxSheet = ss.getSheetByName('index');
     let products = [];
@@ -1238,9 +1238,10 @@ function startProdSession(data) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Production_Logs');
     const sessionId = 'PRD-' + new Date().getTime();
+    const segmentId = sessionId + '-1'; // Phase 1: Initialize Segment ID
     sheet.appendRow([
       sessionId, new Date(), data.user, data.date, data.product,
-      data.startTime, '', '', '', '', '', '', 'Active'
+      data.startTime, '', '', '', '', '', '', 'Active', segmentId
     ]);
     syncWasteTimes(data.date);
     return { success: true };
@@ -1252,7 +1253,7 @@ function endProdSession(data) {
     const sheet = ss.getSheetByName('Production_Logs');
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) throw new Error('لا توجد بيانات');
-    const table = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+    const table = sheet.getRange(2, 1, lastRow - 1, 14).getValues();
     let rowIndex = -1;
 
     // Find the ACTIVE row for this session (searching from bottom ensures we get the latest resumed segment)
@@ -1292,7 +1293,7 @@ function endProdSession(data) {
 
     // --- PROPORTIONAL ACCRUAL ACCOUNTING (If Completed) ---
     if (data.action === 'complete') {
-      const updatedTable = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
+      const updatedTable = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
       let segments = [];
       let totalDur = 0;
 
@@ -1334,7 +1335,7 @@ function resumeProdSession(data) {
     const sheet = ss.getSheetByName('Production_Logs');
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) throw new Error('لا توجد بيانات');
-    const table = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+    const table = sheet.getRange(2, 1, lastRow - 1, 14).getValues();
     let parentRow = null;
     let parentRowIndex = -1;
 
@@ -1354,15 +1355,17 @@ function resumeProdSession(data) {
     const tz = Session.getScriptTimeZone();
     const newDate = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'); // Resume happens TODAY
 
-    // Create new row segment linked to the same sessionId
+    // Create new row segment linked to the same sessionId (Master_Batch_ID)
+    const segmentId = parentRow[0] + '-' + new Date().getTime(); // Phase 1: Unique Segment ID
     sheet.appendRow([
-      parentRow[0], // A: sessionId
+      parentRow[0], // A: sessionId (Master)
       new Date(),   // B: Timestamp
       data.user,    // C: User
       newDate,      // D: Date
       parentRow[4], // E: Product
       data.resumeTime, // F: Start Time
-      '', '', '', '', '', '', 'Active' // Force status to Active
+      '', '', '', '', '', '', 'Active', // Force status to Active
+      segmentId     // N: Segment ID
     ]);
 
     return { success: true };
@@ -1380,8 +1383,8 @@ function getTodayProdSessions(targetDateStr) {
 
     // Re-fetch the Last Row because syncWasteTimes might have added or deleted rows!
     const finalLastRow = sheet.getLastRow();
-    const data = finalLastRow < 2 ? [] : sheet.getRange(2, 1, finalLastRow - 1, 13).getValues();
-    const notesData = finalLastRow < 2 ? [] : sheet.getRange(2, 1, finalLastRow - 1, 13).getNotes();
+    const data = finalLastRow < 2 ? [] : sheet.getRange(2, 1, finalLastRow - 1, 14).getValues();
+    const notesData = finalLastRow < 2 ? [] : sheet.getRange(2, 1, finalLastRow - 1, 14).getNotes();
 
     const filtered = [];
     for (let i = 0; i < data.length; i++) {
@@ -1412,96 +1415,268 @@ function getTodayProdSessions(targetDateStr) {
         });
       }
     }
-    return filtered.reverse(); // Newest first
-  } catch (e) { throw new Error(e.message); }
+    return filtered.reverse();
+// Newest first
+  } catch (e) { throw new Error(e.message);
 }
+}
+
+// ============================================================================
+// --- PHASE 2: NEW UNIFIED DUAL-MATH ENGINE & CONCURRENCY PROFILER ---
+// ============================================================================
+
+function getUnifiedProdData(targetDateStr) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Production_Logs');
+    if (!sheet || sheet.getLastRow() < 2) return { timeline: [], masterCards: [] };
+    
+    const tz = Session.getScriptTimeZone();
+    const todayStr = targetDateStr || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+    
+    // Auto-Sync Waste Times for the visual timeline
+    syncWasteTimes(todayStr);
+    
+    const finalLastRow = sheet.getLastRow();
+    const data = finalLastRow < 2 ? [] : sheet.getRange(2, 1, finalLastRow - 1, 14).getValues();
+    const notesData = finalLastRow < 2 ? [] : sheet.getRange(2, 1, finalLastRow - 1, 14).getNotes();
+
+    const touchedMasterIds = new Set();
+    const timelineSegments = [];
+    const breaksTimeline = [];
+    
+    // PASS 1: Identify all Master IDs touched today & build Factory Minute Map
+    for (let i = 0; i < data.length; i++) {
+      let rowDateStr = data[i][3] instanceof Date ? Utilities.formatDate(new Date(data[i][3]), tz, 'yyyy-MM-dd') : String(data[i][3]).trim();
+      let status = data[i][12];
+      let product = data[i][4];
+      
+      // If it belongs to today, or is currently hanging in Paused/Active state
+      if (rowDateStr === todayStr || status === 'Paused' || status === 'Active') {
+         if (product !== 'وقت مهدر' && product !== 'وقت الراحة') {
+            touchedMasterIds.add(data[i][0]); // Add Master_Batch_ID
+         }
+      }
+      
+      // Collect purely today's physical blocks for the UI Timeline & Concurrency Mapping
+      if (rowDateStr === todayStr) {
+         let sTime = data[i][5] instanceof Date ? Utilities.formatDate(data[i][5], tz, 'HH:mm') : String(data[i][5] || '');
+         let eTime = data[i][6] instanceof Date ? Utilities.formatDate(data[i][6], tz, 'HH:mm') : String(data[i][6] || '');
+         
+         let segmentObj = {
+            masterId: data[i][0], segmentId: data[i][13], user: data[i][2], date: rowDateStr, product: product,
+            startTime: sTime, endTime: eTime, duration: data[i][7], status: status
+         };
+         
+         timelineSegments.push(segmentObj);
+         if (product === 'وقت الراحة') breaksTimeline.push(segmentObj);
+      }
+    }
+
+    // BUILD FACTORY MINUTE MAP (For Concurrency Math)
+    // 0 = Idle, 1 = Solo run, 2+ = Simultaneous Batches
+    const minuteMap = new Array(1440).fill(0);
+    timelineSegments.forEach(seg => {
+       if (seg.product !== 'وقت مهدر' && seg.product !== 'وقت الراحة' && seg.status !== 'Cancelled') {
+          let sM = timeToMins(seg.startTime);
+          let eM = seg.endTime ? timeToMins(seg.endTime) : timeToMins(Utilities.formatDate(new Date(), tz, 'HH:mm'));
+          if (eM < sM) eM += 1440; // Midnight rollover
+          
+          for (let m = sM; m < eM; m++) {
+             // Ensure this minute doesn't overlap with a global break
+             let isBreak = breaksTimeline.some(b => m >= timeToMins(b.startTime) && m < (b.endTime ? timeToMins(b.endTime) : 1440));
+             if (!isBreak) minuteMap[m % 1440]++;
+          }
+       }
+    });
+
+    // PASS 2: Assemble Complete Multi-Day History for Master Cards
+    const masterBatches = {};
+    for (let i = 0; i < data.length; i++) {
+       let masterId = data[i][0];
+       if (touchedMasterIds.has(masterId)) {
+          if (!masterBatches[masterId]) {
+             masterBatches[masterId] = {
+                masterId: masterId,
+                product: data[i][4],
+                totalQuantity: 0,
+                finalStatus: 'Active',
+                finalImage: '',
+                history: [],
+                metrics: { operationalDur: 0, financialDur: 0, concurrencyCounts: { "1": 0, "2": 0, "3": 0, "4+": 0 } }
+             };
+          }
+          
+          let rowDateStr = data[i][3] instanceof Date ? Utilities.formatDate(new Date(data[i][3]), tz, 'yyyy-MM-dd') : String(data[i][3]).trim();
+          let sTime = data[i][5] instanceof Date ? Utilities.formatDate(data[i][5], tz, 'HH:mm') : String(data[i][5] || '');
+          let eTime = data[i][6] instanceof Date ? Utilities.formatDate(data[i][6], tz, 'HH:mm') : String(data[i][6] || '');
+          let dur = parseFloat(data[i][7]) || 0;
+          let qty = parseFloat(data[i][8]) || 0;
+          let status = data[i][12];
+          
+          let combinedNotes = [notesData[i][5], notesData[i][6], notesData[i][8], notesData[i][10], notesData[i][11]].filter(n => n !== '').join('\n');
+          
+          // Push Segment to History
+          masterBatches[masterId].history.push({
+             segmentId: data[i][13] || masterId,
+             date: rowDateStr,
+             startTime: sTime,
+             endTime: eTime,
+             duration: dur,
+             quantityAllocated: qty,
+             status: status,
+             notes: data[i][10],
+             editHistory: combinedNotes
+          });
+          
+          // Update Master Batch Global Variables
+          masterBatches[masterId].metrics.operationalDur += dur;
+          masterBatches[masterId].totalQuantity += qty;
+          masterBatches[masterId].finalStatus = status; // Will overwrite sequentially to latest status
+          if (data[i][11]) masterBatches[masterId].finalImage = data[i][11]; // Grab latest uploaded image
+          
+          // PASS 3: Calculate Diluted Financial Math & Concurrency for TODAY's segments
+          if (rowDateStr === todayStr && status !== 'Cancelled') {
+             let sM = timeToMins(sTime);
+             let eM = eTime ? timeToMins(eTime) : timeToMins(Utilities.formatDate(new Date(), tz, 'HH:mm'));
+             if (eM < sM) eM += 1440;
+             
+             for (let m = sM; m < eM; m++) {
+                let isBreak = breaksTimeline.some(b => m >= timeToMins(b.startTime) && m < (b.endTime ? timeToMins(b.endTime) : 1440));
+                if (!isBreak) {
+                   let concurrentActive = minuteMap[m % 1440];
+                   if (concurrentActive > 0) {
+                      masterBatches[masterId].metrics.financialDur += (1 / concurrentActive);
+                      
+                      // Log concurrency context
+                      if (concurrentActive === 1) masterBatches[masterId].metrics.concurrencyCounts["1"]++;
+                      else if (concurrentActive === 2) masterBatches[masterId].metrics.concurrencyCounts["2"]++;
+                      else if (concurrentActive === 3) masterBatches[masterId].metrics.concurrencyCounts["3"]++;
+                      else masterBatches[masterId].metrics.concurrencyCounts["4+"]++;
+                   }
+                }
+             }
+          }
+       }
+    }
+
+    // Convert Object to Array and Reverse (Newest First)
+    const masterCardsArray = Object.values(masterBatches).reverse();
+
+    return {
+       timeline: timelineSegments,
+       masterCards: masterCardsArray
+    };
+    
+  } catch (e) { 
+    throw new Error(e.message);
+  }
+}
+// ============================================================================
+
 function editProdSession(data) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Production_Logs');
-    const lastRow = sheet.getLastRow();
-    // Grab up to column 13 (M) so we can check Status for the ripple effect
-    const table = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
-    let rowIndex = -1; let oldData = [];
-
-    // Search backward so the backend edits the exact same recent segment the frontend showed
-    for (let i = table.length - 1; i >= 0; i--) {
-      if (table[i][0] === data.sessionId) { rowIndex = i + 2; oldData = table[i]; break; }
-    }
-    if (rowIndex === -1) throw new Error('Session not found');
-
-    const oldStartTime = oldData[5] instanceof Date ? Utilities.formatDate(oldData[5], Session.getScriptTimeZone(), 'HH:mm') : String(oldData[5] || '');
-    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
-
-    // 1. SIMPLE ACTIVE EDIT
-    if (data.isActiveEdit) {
-      sheet.getRange(rowIndex, 6).setValue(data.newStartTime);
-      if (oldStartTime !== data.newStartTime) {
-        addCellNote(sheet, rowIndex, 6, `[${timestamp}] ${data.user}: تعديل وقت البدء من ${oldStartTime} إلى ${data.newStartTime}`);
-      }
-      return { success: true };
-    }
-
-    const oldEndTime = oldData[6] instanceof Date ? Utilities.formatDate(oldData[6], Session.getScriptTimeZone(), 'HH:mm') : String(oldData[6] || '');
-    const oldNotes = oldData[10];
-
-    // 2. RECALCULATE DURATION FOR THE EDITED ROW
-    const newDuration = calculateDuration(data.newStartTime, data.newEndTime);
-
-    sheet.getRange(rowIndex, 6).setValue(data.newStartTime);
-    sheet.getRange(rowIndex, 7).setValue(data.newEndTime);
-    sheet.getRange(rowIndex, 8).setValue(newDuration);
-    sheet.getRange(rowIndex, 11).setValue(data.newNotes || '');
-    if (data.newImageUrl) sheet.getRange(rowIndex, 12).setValue(data.newImageUrl);
-
-    if (oldStartTime !== data.newStartTime) addCellNote(sheet, rowIndex, 6, `[${timestamp}] ${data.user}: تعديل وقت البدء إلى ${data.newStartTime}`);
-    if (oldEndTime !== data.newEndTime) addCellNote(sheet, rowIndex, 7, `[${timestamp}] ${data.user}: تعديل وقت الإنهاء إلى ${data.newEndTime}`);
-    if (String(oldNotes) !== String(data.newNotes)) addCellNote(sheet, rowIndex, 11, `[${timestamp}] ${data.user}: تم تعديل الملاحظات`);
-    if (data.newImageUrl) addCellNote(sheet, rowIndex, 12, `[${timestamp}] ${data.user}: تم تحديث الصورة`);
-
-    // 3. RIPPLE EFFECT: PROPORTIONAL REBALANCING (Time & Quantity)
-    // Only apply math if it's a real product (not Waste/Break) and global quantity was sent
-    if (data.newTotalQuantity !== undefined && oldData[4] !== 'وقت مهدر' && oldData[4] !== 'وقت الراحة') {
-      let segments = [];
-      let totalBatchDur = 0;
-
-      // Scan ALL rows to find every segment of this specific batch
-      for (let i = 0; i < table.length; i++) {
-        let stat = table[i][12];
-        if (table[i][0] === data.sessionId && (stat === 'Paused' || stat === 'Resumed' || stat === 'Completed')) {
-          segments.push(i + 2);
-          // If it's the row we just edited, use the fresh newDuration. Otherwise, use table duration.
-          let segDur = (i + 2 === rowIndex) ? newDuration : (parseFloat(table[i][7]) || 0);
-          totalBatchDur += segDur;
-        }
-      }
-
-      let globalQty = parseFloat(data.newTotalQuantity) || 0;
-
-      // Split the new Global Quantity proportionally based on the updated durations
-      if (totalBatchDur > 0 && globalQty > 0) {
-        segments.forEach(rIdx => {
-          let sDur = (rIdx === rowIndex) ? newDuration : (parseFloat(sheet.getRange(rIdx, 8).getValue()) || 0);
-          let proportion = sDur / totalBatchDur;
-
-          // Strict 1-Decimal Rounding
-          let sQty = parseFloat((proportion * globalQty).toFixed(1));
-          let sAvg = sQty > 0 ? (sDur / sQty).toFixed(2) : 0;
-
-          sheet.getRange(rIdx, 9).setValue(sQty);
-          sheet.getRange(rIdx, 10).setValue(sAvg);
-        });
-
-        addCellNote(sheet, rowIndex, 9, `[${timestamp}] ${data.user}: حفظ/إعادة توزيع إجمالي كمية الدفعة (${globalQty})`);
-      }
-    }
-
-    // 4. SYNC WASTE TIMELINE
-    let dateStr = oldData[3] instanceof Date ? Utilities.formatDate(oldData[3], Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(oldData[3]);
-    syncWasteTimes(dateStr);
+    const table = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
     
-    // 5. RETROACTIVE SYNC: Fix JSON performance tracking for this day onwards
-    triggerRetroactiveSync(dateStr, data.user);
+    let targetRowIndex = -1;
+    let masterIdForRipple = '';
+    let targetData = [];
+
+    // 1. Locate Target Row (Segment ID [Col 13] or Master ID [Col 0])
+    for (let i = table.length - 1; i >= 0; i--) {
+       if (table[i][13] === data.targetId || table[i][0] === data.targetId) {
+           targetRowIndex = i + 2;
+           targetData = table[i];
+           masterIdForRipple = table[i][0];
+           break;
+       }
+    }
+    if (targetRowIndex === -1) throw new Error('تعذر العثور على السجل في قاعدة البيانات.');
+
+    const tz = Session.getScriptTimeZone();
+    const timestamp = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+    
+    // 2. Apply Time Edits (Segment Level)
+    if (data.editTime) {
+       let oldSTime = targetData[5] instanceof Date ? Utilities.formatDate(targetData[5], tz, 'HH:mm') : String(targetData[5] || '');
+       sheet.getRange(targetRowIndex, 6).setValue(data.newStartTime);
+       if (oldSTime !== data.newStartTime) addCellNote(sheet, targetRowIndex, 6, `[${timestamp}] ${data.user}: تعديل وقت البدء إلى ${data.newStartTime}`);
+       
+       if (data.newEndTime && targetData[12] !== 'Active') {
+           let oldETime = targetData[6] instanceof Date ? Utilities.formatDate(targetData[6], tz, 'HH:mm') : String(targetData[6] || '');
+           sheet.getRange(targetRowIndex, 7).setValue(data.newEndTime);
+           
+           const newDuration = calculateDuration(data.newStartTime, data.newEndTime);
+           sheet.getRange(targetRowIndex, 8).setValue(newDuration);
+           
+           if (oldETime !== data.newEndTime) addCellNote(sheet, targetRowIndex, 7, `[${timestamp}] ${data.user}: تعديل وقت الإنهاء إلى ${data.newEndTime}`);
+       }
+    }
+
+    // 3. Apply Notes & Image Edits (Universal for both Segment and Master)
+    let oldNotes = targetData[10];
+    sheet.getRange(targetRowIndex, 11).setValue(data.newNotes || '');
+    if (String(oldNotes) !== String(data.newNotes)) addCellNote(sheet, targetRowIndex, 11, `[${timestamp}] ${data.user}: تم تعديل الملاحظات`);
+    
+    if (data.newImageUrl) {
+       sheet.getRange(targetRowIndex, 12).setValue(data.newImageUrl);
+       addCellNote(sheet, targetRowIndex, 12, `[${timestamp}] ${data.user}: تم تحديث الصورة`);
+    }
+
+    // 4. RIPPLE EFFECT: Proportional Math for Production Batches
+    if (targetData[4] !== 'وقت مهدر' && targetData[4] !== 'وقت الراحة') {
+       const updatedTable = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
+       let segments = [];
+       let totalBatchDur = 0;
+       let globalQty = data.editQuantity ? data.newTotalQuantity : 0;
+       
+       for (let i = 0; i < updatedTable.length; i++) {
+           let stat = updatedTable[i][12];
+           if (updatedTable[i][0] === masterIdForRipple && (stat === 'Paused' || stat === 'Resumed' || stat === 'Completed' || stat === 'Active')) {
+               segments.push(i + 2);
+               totalBatchDur += (parseFloat(updatedTable[i][7]) || 0); // Accumulate updated durations
+               if (!data.editQuantity) globalQty += (parseFloat(updatedTable[i][8]) || 0); // Retain existing global qty if not editing it
+           }
+       }
+
+       if (totalBatchDur > 0 && globalQty > 0) {
+           segments.forEach(rIdx => {
+               let sDur = parseFloat(sheet.getRange(rIdx, 8).getValue()) || 0;
+               let proportion = sDur / totalBatchDur;
+               let sQty = parseFloat((proportion * globalQty).toFixed(1));
+               let sAvg = sQty > 0 ? (sDur / sQty).toFixed(2) : 0;
+
+               sheet.getRange(rIdx, 9).setValue(sQty);
+               sheet.getRange(rIdx, 10).setValue(sAvg);
+           });
+           if (data.editQuantity) addCellNote(sheet, targetRowIndex, 9, `[${timestamp}] ${data.user}: إعادة توزيع إجمالي الدفعة (${globalQty})`);
+       }
+    }
+
+    // 5. SYNC WASTE & JSON ACROSS ALL AFFECTED DAYS
+    let affectedDates = new Set();
+    
+    // Always add the base date of the specific row being edited
+    let baseDate = targetData[3] instanceof Date ? Utilities.formatDate(targetData[3], tz, 'yyyy-MM-dd') : String(targetData[3]).trim();
+    if (baseDate) affectedDates.add(baseDate);
+
+    // If this is a multi-segment Master Batch, scan the original table for ANY other dates it touched
+    if (masterIdForRipple && targetData[4] !== 'وقت مهدر' && targetData[4] !== 'وقت الراحة') {
+       for (let i = 0; i < table.length; i++) {
+           if (table[i][0] === masterIdForRipple) {
+               let dStr = table[i][3] instanceof Date ? Utilities.formatDate(table[i][3], tz, 'yyyy-MM-dd') : String(table[i][3]).trim();
+               if (dStr) affectedDates.add(dStr);
+           }
+       }
+    }
+
+    // Trigger the recalculation and ledger sync for EVERY affected day
+    affectedDates.forEach(dateStr => {
+       syncWasteTimes(dateStr);
+       triggerRetroactiveSync(dateStr, data.user);
+    });
     
     return { success: true };
   } catch (e) { throw new Error(e.message); }
@@ -1531,9 +1706,10 @@ function addBreakSession(data) {
     const sessionId = 'BRK-' + new Date().getTime();
     const duration = data.endTime ? calculateDuration(data.startTime, data.endTime) : '';
     const status = data.endTime ? 'Completed' : 'Active';
+    const segmentId = sessionId + '-1'; // Phase 1: Initialize Segment ID
     sheet.appendRow([
       sessionId, new Date(), data.user, data.date, 'وقت الراحة',
-      data.startTime, data.endTime || '', duration, '', '', data.notes || '', '', status
+      data.startTime, data.endTime || '', duration, '', '', data.notes || '', '', status, segmentId
     ]);
     syncWasteTimes(data.date);
     return { success: true };
@@ -1547,7 +1723,7 @@ function endBreakSession(data) {
     const sheet = ss.getSheetByName('Production_Logs');
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) throw new Error('لا توجد بيانات');
-    const table = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+    const table = sheet.getRange(2, 1, lastRow - 1, 14).getValues();
     let rowIndex = -1;
     // Search backward to guarantee we grab the active segment
     for (let i = table.length - 1; i >= 0; i--) {
@@ -1598,7 +1774,7 @@ function syncWasteTimes(dateStr) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Production_Logs');
   if (!sheet) return;
-  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
   let timeline = new Array(1440).fill(false);
   let todayRows = [];
   data.forEach(function (r, i) {
@@ -1660,10 +1836,11 @@ function syncWasteTimes(dateStr) {
       sheet.getRange(wasteRows[i].rowIndex, 8).setValue(gaps[i].end - gaps[i].start);
     } else if (i < gaps.length) {
       const sessionId = 'WST-' + new Date().getTime() + '-' + i;
+      const segmentId = sessionId + '-1';
       sheet.appendRow([
         sessionId, new Date(), 'النظام', dateStr, 'وقت مهدر',
         minsToTime(gaps[i].start), minsToTime(gaps[i].end), gaps[i].end - gaps[i].start,
-        '', '', '', '', 'Completed'
+        '', '', '', '', 'Completed', segmentId
       ]);
     } else {
       rowsToDelete.push(wasteRows[i].rowIndex);
@@ -1679,7 +1856,7 @@ function endOfDayRoutine() {
   const tz = Session.getScriptTimeZone();
   const today = new Date();
   const todayStr = Utilities.formatDate(today, tz, 'yyyy-MM-dd');
-  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
   let updatedActive = false;
   // 1. Force-close any uncompleted Active sessions to 16:30
   for (let i = 0; i < data.length; i++) {
@@ -1700,7 +1877,7 @@ function endOfDayRoutine() {
   // 2. Synchronize Waste Times completely for the day
   syncWasteTimes(todayStr);
   // 3. Gather Updated Data for Metric Calculation
-  const updatedData = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
+  const updatedData = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
   let actualStart = 1440; let actualEnd = 0;
   let totalProd = 0; let totalBreak = 0; let totalWaste = 0;
   let hasData = false;
@@ -1832,7 +2009,7 @@ function getProductionReportData(filters) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Production_Logs');
   if (!sheet) throw new Error("Sheet not found");
-  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
   const tz = Session.getScriptTimeZone();
   let kpis = { prod: 0, break: 0, waste: 0, overtime: 0 };
   let prodMap = {};
@@ -1947,13 +2124,15 @@ function getProductionReportData(filters) {
     // Aggregate the perfectly balanced times back into the product maps
     prodSessions.forEach(session => {
       let p = session.product;
-      if (!prodMap[p]) prodMap[p] = { qty: 0, dur: 0, breakdown: {} };
+      if (!prodMap[p]) prodMap[p] = { qty: 0, dilutedDur: 0, rawDur: 0, breakdown: {} };
       prodMap[p].qty += session.qty;
-      prodMap[p].dur += session.allocatedDur;
+      prodMap[p].dilutedDur += session.allocatedDur;
+      prodMap[p].rawDur += (session.end - session.start); // Add raw physical duration
 
-      if (!prodMap[p].breakdown[d]) prodMap[p].breakdown[d] = { qty: 0, dur: 0 };
+      if (!prodMap[p].breakdown[d]) prodMap[p].breakdown[d] = { qty: 0, dilutedDur: 0, rawDur: 0 };
       prodMap[p].breakdown[d].qty += session.qty;
-      prodMap[p].breakdown[d].dur += session.allocatedDur;
+      prodMap[p].breakdown[d].dilutedDur += session.allocatedDur;
+      prodMap[p].breakdown[d].rawDur += (session.end - session.start);
     });
 
     let shiftStart = (actualStart < 480) ? actualStart : 480;
@@ -1976,8 +2155,22 @@ function getProductionReportData(filters) {
   let trendArray = Object.values(trendMap).sort((a, b) => a.date.localeCompare(b.date));
   let productsArray = Object.keys(prodMap).map(p => {
     let d = prodMap[p];
-    let avg = d.qty > 0 ? (d.dur / d.qty).toFixed(2) : 0;
-    return { name: p, qty: d.qty, dur: d.dur, avg: avg, breakdown: d.breakdown };
+    
+    // NEW DUAL MATH:
+    // Operational Speed strictly uses Raw Duration. Financial Cost uses Diluted Duration.
+    let opAvgTime = d.qty > 0 ? (d.rawDur / d.qty).toFixed(2) : 0;
+    let finLoadedTime = d.qty > 0 ? (d.dilutedDur / d.qty).toFixed(2) : 0;
+    
+    return { 
+      name: p, 
+      qty: d.qty, 
+      dur: d.dilutedDur, // Keep 'dur' tied to financial for backward compatibility
+      rawDur: d.rawDur,
+      dilutedDur: d.dilutedDur,
+      opAvg: opAvgTime,
+      finAvg: finLoadedTime,
+      breakdown: d.breakdown 
+    };
   }).sort((a, b) => b.dur - a.dur);
   return {
     kpis: kpis,
@@ -2025,8 +2218,8 @@ function syncPerformanceData(dateStr, triggerSource) {
   let sheet = ss.getSheetByName('Daily_Product_Performance');
   if (!sheet) {
     sheet = ss.insertSheet('Daily_Product_Performance');
-    sheet.appendRow(['التاريخ', 'المنتج', 'الكمية المنتجة', 'وقت الإنتاج الصافي', 'الوقت المحمل للوحدة', 'نسبة التكلفة المجمعة', 'وزن تكلفة الوحدة', 'Daily JSON', 'Monthly JSON', 'وقت الحفظ', 'بواسطة']);
-    sheet.getRange(1, 1, 1, 11).setFontWeight('bold').setBackground('#f3f4f6');
+    sheet.appendRow(['التاريخ', 'المنتج', 'الكمية المنتجة', 'وقت الإنتاج الصافي', 'متوسط وقت الإنتاج التشغيلي', 'الوقت المالي المخفف', 'الوقت المحمل للوحدة', 'نسبة التكلفة المجمعة', 'وزن تكلفة الوحدة', 'Daily JSON', 'Monthly JSON', 'ملف التزامن', 'وقت الحفظ', 'بواسطة']);
+    sheet.getRange(1, 1, 1, 14).setFontWeight('bold').setBackground('#f3f4f6');
   }
 
   // 1. Get Daily Data via your existing bulletproof reporting engine
@@ -2051,17 +2244,27 @@ function syncPerformanceData(dateStr, triggerSource) {
   let mtdFactoryReport = getProductionReportData({ startDate: startOfMonth, endDate: dateStr, product: 'الكل', user: 'الكل' });
   let mtdTotalFactoryTime = mtdFactoryReport.kpis.prod;
 
+  // We need the Unified Data to grab the exact concurrency breakdown JSON
+  let unifiedData = getUnifiedProdData(dateStr);
+  
   report.products.forEach(p => {
-    let aggCostPct = totalFactoryTime > 0 ? (p.dur / totalFactoryTime) * 100 : 0;
+    let aggCostPct = totalFactoryTime > 0 ? (p.dilutedDur / totalFactoryTime) * 100 : 0;
     let unitWeightPct = p.qty > 0 ? (aggCostPct / p.qty) : 0;
-    let loadedTimePerUnit = p.qty > 0 ? (p.dur / p.qty) : 0;
+    let loadedTimePerUnit = p.qty > 0 ? (p.dilutedDur / p.qty) : 0;
+    let operationalTimePerUnit = p.qty > 0 ? (p.rawDur / p.qty) : 0;
+
+    // Find the master card to extract the concurrency profile
+    let masterCard = unifiedData.masterCards.find(m => m.product === p.name);
+    let concurrencyProfileJSON = masterCard && masterCard.metrics ? JSON.stringify(masterCard.metrics.concurrencyCounts) : '{}';
 
     let dailyJson = {
       date: dateStr,
       product: p.name,
       qty: p.qty,
-      netProdTimeMins: parseFloat(p.dur.toFixed(2)),
-      loadedTimePerUnitMins: parseFloat(loadedTimePerUnit.toFixed(2)),
+      rawProdTimeMins: parseFloat(p.rawDur.toFixed(2)),
+      dilutedProdTimeMins: parseFloat(p.dilutedDur.toFixed(2)),
+      opTimePerUnitMins: parseFloat(operationalTimePerUnit.toFixed(2)),
+      finTimePerUnitMins: parseFloat(loadedTimePerUnit.toFixed(2)),
       aggCostPct: parseFloat(aggCostPct.toFixed(4)),
       unitWeightPct: parseFloat(unitWeightPct.toFixed(6))
     };
@@ -2071,7 +2274,8 @@ function syncPerformanceData(dateStr, triggerSource) {
       month: dateStr.substring(0, 7),
       product: p.name,
       mtdQty: mtdProduct ? mtdProduct.qty : 0,
-      mtdNetProdTimeMins: mtdProduct ? parseFloat(mtdProduct.dur.toFixed(2)) : 0,
+      mtdRawProdTimeMins: mtdProduct ? parseFloat(mtdProduct.rawDur.toFixed(2)) : 0,
+      mtdDilutedProdTimeMins: mtdProduct ? parseFloat(mtdProduct.dilutedDur.toFixed(2)) : 0,
       mtdTotalFactoryTimeMins: mtdTotalFactoryTime
     };
 
@@ -2079,19 +2283,22 @@ function syncPerformanceData(dateStr, triggerSource) {
       dateStr,
       p.name,
       p.qty,
-      formatDurationBackend(p.dur),
-      formatDurationBackend(loadedTimePerUnit),
+      formatDurationBackend(p.rawDur),        // D: Raw Operational Time
+      formatDurationBackend(operationalTimePerUnit), // E: Avg Operational Time / Unit
+      formatDurationBackend(p.dilutedDur),    // F: Financial Diluted Time
+      formatDurationBackend(loadedTimePerUnit),// G: Financial Time / Unit
       aggCostPct.toFixed(2) + '%',
       unitWeightPct.toFixed(4) + '%',
       JSON.stringify(dailyJson),
       JSON.stringify(mtdJson),
+      concurrencyProfileJSON,                 // L: Concurrency State Array
       timestamp,
       triggerSource
     ]);
   });
 
   if (newRows.length > 0) {
-    sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 11).setValues(newRows);
+    sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 14).setValues(newRows);
   }
 }
 
@@ -2183,4 +2390,81 @@ function getLatestHandover() {
       image: String(lastRow[3])
     };
   } catch(e) { return null; }
+}
+
+// ============================================================================
+// --- PHASE 6: ONE-TIME HISTORICAL DATA MIGRATION SCRIPT ---
+// ============================================================================
+
+function runHistoricalDataMigration() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const logSheet = ss.getSheetByName('Production_Logs');
+    if (!logSheet || logSheet.getLastRow() < 2) {
+      return "عذراً، لم يتم العثور على أي بيانات في جدول Production_Logs.";
+    }
+    
+    const lastRow = logSheet.getLastRow();
+    const range = logSheet.getRange(2, 1, lastRow - 1, 14);
+    const values = range.getValues();
+    
+    const tz = Session.getScriptTimeZone();
+    const sessionCounters = {};
+    const uniqueDates = new Set();
+    let segmentsUpdated = 0;
+    
+    // PASS 1: Assign Retroactive Segment IDs and Collect Unique Logged Dates
+    for (let i = 0; i < values.length; i++) {
+      let sessionId = values[i][0];
+      if (!sessionId) continue;
+      
+      // Extract the chronological date string
+      let dateStr = values[i][3] instanceof Date 
+        ? Utilities.formatDate(values[i][3], tz, 'yyyy-MM-dd') 
+        : String(values[i][3]).trim();
+        
+      if (dateStr && dateStr !== 'وقت مهدر' && dateStr !== 'وقت الراحة' && values[i][4]) {
+        uniqueDates.add(dateStr);
+      }
+      
+      // Track serialized counters for segment grouping
+      if (!sessionCounters[sessionId]) {
+        sessionCounters[sessionId] = 0;
+      }
+      sessionCounters[sessionId]++;
+      
+      // If Column N (Segment ID) is completely blank, retro-assign identity
+      if (!values[i][13] || String(values[i][13]).trim() === "") {
+        values[i][13] = sessionId + '-' + sessionCounters[sessionId];
+        segmentsUpdated++;
+      }
+    }
+    
+    // Save generated segment IDs back to Column N in bulk execution
+    if (segmentsUpdated > 0) {
+      const segmentIdColumnValues = values.map(row => [row[13]]);
+      logSheet.getRange(2, 14, segmentIdColumnValues.length, 1).setValues(segmentIdColumnValues);
+    }
+    
+    // PASS 2: Sequential Backfill via the Live Dual-Math Engine
+    let datesArray = Array.from(uniqueDates).sort();
+    let datesSynced = 0;
+    
+    datesArray.forEach(dateStr => {
+      try {
+        // Triggers full deletion of old row + complete recalculation of the 14 columns
+        syncPerformanceData(dateStr, 'الهجرة التاريخية (Data Migration)');
+        datesSynced++;
+      } catch (err) {
+        Logger.log(`خطأ أثناء معالجة تاريخ ${dateStr}: ${err.message}`);
+      }
+    });
+    
+    return `🎉 تمت عملية الهجرة وتحديث البيانات التاريخية بنجاح!\n\n` +
+           `- تم إنشاء معرّفات تشغيل جزئية (Segment IDs): ${segmentsUpdated} سجل.\n` +
+           `- تم إعادة احتساب ومزامنة الأداء المالي والتشغيلي لـ: ${datesSynced} يومًا بالكامل.`;
+           
+  } catch (e) {
+    throw new Error("فشلت عملية الهجرة: " + e.message);
+  }
 }
